@@ -8,6 +8,7 @@ import { auth } from '@/server/auth';
 import { env } from '@/server/env';
 import { mailEnabled, sendMail, transportFor } from '@/server/mail';
 import { requireAdmin } from '@/server/session';
+import { forgetFaces, kickFaces } from '@/server/faces';
 import { getSettings, setSetting, type Settings } from '@/server/settings';
 
 export type AdminResult = { ok?: string; error?: string; secret?: string } | undefined;
@@ -77,9 +78,18 @@ export async function deleteUserAction(userId: string): Promise<AdminResult> {
 export async function toggleSettingAction(key: 'maps' | 'faces' | 'guestUploads', value: boolean): Promise<AdminResult> {
   await requireAdmin();
   await setSetting(key, value);
+  if (key === 'faces' && value) kickFaces();
   revalidatePath('/', 'layout');
   const label: Record<typeof key, string> = { maps: 'Mapas', faces: 'Reconocimiento facial', guestUploads: 'Subidas de invitados' };
   return { ok: `${label[key]}: ${value ? 'activado' : 'desactivado'}` };
+}
+
+export async function forgetFacesAction(): Promise<AdminResult> {
+  await requireAdmin();
+  await forgetFaces();
+  if ((await getSettings()).faces) kickFaces();
+  revalidatePath('/', 'layout');
+  return { ok: 'Se borraron las caras y las personas. Si el reconocimiento sigue prendido, vuelve a revisar las fotos desde cero.' };
 }
 
 const Smtp = z.object({

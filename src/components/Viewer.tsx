@@ -7,6 +7,7 @@ import { IconBack, IconClose, IconDownload, IconFlip, IconHeart, IconMore, IconN
 import { cardRatio, clamp, EASE, reducedMotion, tiltRelease, tiltTo } from './motion';
 import { aspect, mediaUrl, PhotoImage, type LocalPhoto } from './Print';
 import { trap } from './Sheet';
+import { BackPeople, WhoSheet } from './People';
 import { CommentsButton, CommentsPanel, Reactions } from './Social';
 import type { ReactionKind } from '@/lib/types';
 
@@ -32,6 +33,8 @@ type Props = {
   onCommentsCount?: (id: string, n: number) => void;
   /** Abre el modo proyector desde la foto en pantalla. */
   onProject?: (i: number) => void;
+  /** Quién aparece (solo miembros del álbum). */
+  people?: { canEdit: boolean; onChanged: () => void };
   sourceFor: (id: string) => HTMLElement | null;
   onIndex?: (i: number) => void;
   onNote: (id: string, note: string) => void;
@@ -51,6 +54,7 @@ export function Viewer(props: Props) {
   const [flipped, setFlipped] = useState(false);
   const [menu, setMenu] = useState<'closed' | 'open' | 'confirm'>('closed');
   const [talk, setTalk] = useState(false);
+  const [who, setWho] = useState(false);
   const [box, setBox] = useState({ w: 0, h: 0 });
   const [hiRes, setHiRes] = useState<{ id: string; url: string } | null>(null);
 
@@ -198,7 +202,9 @@ export function Viewer(props: Props) {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (document.querySelector('.sheet')) return;
-      const typing = (e.target as Element)?.closest?.('textarea');
+      // Una hoja abierta encima (por ejemplo, "¿Quién aparece?") maneja su propio teclado
+      if ((e.target as Element)?.closest?.('.sheet')) return;
+      const typing = (e.target as Element)?.closest?.('textarea,input,select');
       if (e.key === 'Escape') {
         e.preventDefault();
         if (talk) setTalk(false);
@@ -374,7 +380,16 @@ export function Viewer(props: Props) {
                       onChange={e => onNoteChange(e.target.value)}
                     />
                   </div>
-                  <BackData key={p.id} p={p} albumPlace={props.place} exposure={exposure} canEdit={canEdit && !!props.onSaveData} onSave={props.onSaveData} tab={flipped ? 0 : -1} />
+                  <BackData
+                    key={p.id}
+                    p={p}
+                    albumPlace={props.place}
+                    exposure={exposure}
+                    canEdit={canEdit && !!props.onSaveData}
+                    onSave={props.onSaveData}
+                    tab={flipped ? 0 : -1}
+                    people={props.people && <BackPeople photoId={p.id} active={flipped} canEdit={props.people.canEdit} onEdit={() => setWho(true)} tab={flipped ? 0 : -1} />}
+                  />
                 </div>
               </div>
             </div>
@@ -402,6 +417,7 @@ export function Viewer(props: Props) {
           </button>
         </div>
       </div>
+      {who && props.people && <WhoSheet photoId={p.id} onClose={() => setWho(false)} onChanged={props.people.onChanged} />}
       {talk && props.onReact && (
         <CommentsPanel key={p.id} photoId={p.id} onCount={n => props.onCommentsCount?.(p.id, n)} onClose={() => setTalk(false)} />
       )}
@@ -420,8 +436,8 @@ function FrontImage({ photo, hiRes, shareToken }: { photo: LocalPhoto; hiRes: st
 }
 
 /** Ficha técnica del dorso. Quien puede editar la corrige ahí mismo. */
-function BackData({ p, albumPlace, exposure, canEdit, onSave, tab }: {
-  p: LocalPhoto; albumPlace: string; exposure: string; canEdit: boolean; onSave?: (id: string, data: PhotoEdit) => Promise<boolean>; tab: number;
+function BackData({ p, albumPlace, exposure, canEdit, onSave, tab, people }: {
+  p: LocalPhoto; albumPlace: string; exposure: string; canEdit: boolean; onSave?: (id: string, data: PhotoEdit) => Promise<boolean>; tab: number; people?: React.ReactNode;
 }) {
   const [editing, setEditing] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -468,6 +484,12 @@ function BackData({ p, albumPlace, exposure, canEdit, onSave, tab }: {
     <dl className="specs">
       <dt>Lugar</dt>
       <dd>{p.place || albumPlace || 'Sin lugar'}</dd>
+      {people && (
+        <>
+          <dt>Aparecen</dt>
+          <dd>{people}</dd>
+        </>
+      )}
       {p.takenAt && (
         <>
           <dt>Fecha</dt>

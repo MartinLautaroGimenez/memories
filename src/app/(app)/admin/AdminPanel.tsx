@@ -1,13 +1,14 @@
 'use client';
 
 import Link from 'next/link';
-import { useActionState, useState, useTransition } from 'react';
+import { useRouter } from 'next/navigation';
+import { useActionState, useEffect, useState, useTransition } from 'react';
 import { Avatar } from '@/components/Avatars';
 import { Field, Result } from '@/components/FormBits';
 import { avatarColor } from '@/lib/people';
 import type { AdminUser, StorageStats } from '@/server/admin';
 import {
-  createUserAction, deleteUserAction, removeSmtpAction, resetPasswordAction, saveSmtpAction, setRoleAction, testSmtpAction,
+  createUserAction, deleteUserAction, forgetFacesAction, removeSmtpAction, resetPasswordAction, saveSmtpAction, setRoleAction, testSmtpAction,
   toggleSettingAction, type AdminResult,
 } from './actions';
 
@@ -19,9 +20,13 @@ export const bytes = (n: number) => {
 
 type Features = { maps: boolean; faces: boolean; guestUploads: boolean };
 type Smtp = { host: string; port: number; secure: boolean; user: string; pass: string; from: string } | null;
+type FacesInfo = {
+  models: { state: 'missing' | 'downloading' | 'ready' | 'error'; progress?: number; error?: string };
+  running: boolean; total: number; scanned: number; faces: number; people: number; dir: string;
+};
 
 export function AdminPanel(props: {
-  meId: string; users: AdminUser[]; solo: Record<string, number>; storage: StorageStats; features: Features; smtp: Smtp; envSmtp: boolean;
+  meId: string; users: AdminUser[]; solo: Record<string, number>; storage: StorageStats; features: Features; smtp: Smtp; envSmtp: boolean; faces: FacesInfo;
 }) {
   const [msg, setMsg] = useState<AdminResult>();
   const [pending, start] = useTransition();
@@ -49,6 +54,7 @@ export function AdminPanel(props: {
         <h2 id="funciones">Funciones</h2>
         <Toggle k="maps" on={props.features.maps} label="Mapas y Atlas" hint="El mapa de cada álbum usa teselas de OpenStreetMap: el navegador las pide a sus servidores. El Atlas se dibuja sin servicios externos." run={run} />
         <Toggle k="faces" on={props.features.faces} label="Reconocimiento facial" hint="Busca caras al revelar cada foto, todo dentro de este servidor. La primera vez descarga dos modelos chicos (unos 40 MB) y usa CPU." run={run} />
+        {(props.features.faces || props.faces.faces > 0 || props.faces.people > 0) && <FacesStatus on={props.features.faces} f={props.faces} busy={pending} run={run} />}
         <Toggle k="guestUploads" on={props.features.guestUploads} label="Subidas de invitados" hint="Permite que los links públicos acepten fotos de gente sin cuenta, si quien administra el álbum lo activa." run={run} />
       </section>
 
@@ -197,5 +203,45 @@ function SmtpForm({ smtp, envSmtp }: { smtp: Smtp; envSmtp: boolean }) {
         {smtp && <button className="btn ghost" type="button" onClick={() => start(async () => setTest(await removeSmtpAction()))}>Quitar</button>}
       </div>
     </form>
+  );
+}
+
+function FacesStatus({ on, f, busy, run }: { on: boolean; f: FacesInfo; busy: boolean; run: (fn: () => Promise<AdminResult>) => void }) {
+  const router = useRouter();
+  const [confirm, setConfirm] = useState(false);
+  const working = on && (f.models.state === 'downloading' || f.running || (f.models.state === 'ready' && f.scanned < f.total));
+  // Mientras trabaja, el panel se actualiza solo
+  useEffect(() => {
+    if (!working) return;
+    const t = setInterval(() => router.refresh(), 3000);
+    return () => clearInterval(t);
+  }, [working, router]);
+  const pct = f.total ? Math.round((f.scanned / f.total) * 100) : 100;
+  return (
+    <div className="faces-status">
+      {on && f.models.state === 'downloading' && <p className="meta">Descargando los modelos… {Math.round((f.models.progress ?? 0) * 100)}%</p>}
+      {on && f.models.state === 'error' && (
+        <p className="form-error">
+          No pudimos descargar los modelos ({f.models.error}). Revisá que el servidor tenga salida a internet, o copiá los archivos a mano en <code>{f.dir}</code>.
+        </p>
+      )}
+      {(f.models.state === 'ready' || !on) && (
+        <>
+          <div className="meter" aria-hidden="true"><span style={{ width: `${pct}%` }} /></div>
+          <p className="meta">
+            {f.scanned} de {f.total} fotos revisadas{working ? ' (buscando caras…)' : ''}. {f.faces} caras, {f.people} {f.people === 1 ? 'persona con nombre' : 'personas con nombre'}.
+          </p>
+        </>
+      )}
+      {confirm ? (
+        <div className="row-actions">
+          <span className="meta">Se borran todas las caras y personas, también las etiquetas a mano.</span>
+          <button className="btn danger" type="button" disabled={busy} onClick={() => { setConfirm(false); run(() => forgetFacesAction()); }}>Borrar</button>
+          <button className="btn ghost" type="button" onClick={() => setConfirm(false)}>Cancelar</button>
+        </div>
+      ) : (
+        (f.faces > 0 || f.people > 0) && <button className="link-btn" type="button" onClick={() => setConfirm(true)}>Borrar todo lo aprendido</button>
+      )}
+    </div>
   );
 }

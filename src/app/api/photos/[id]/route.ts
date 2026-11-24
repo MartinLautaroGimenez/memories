@@ -5,6 +5,7 @@ import { toPhotoDTO } from '@/server/albums';
 import { db } from '@/server/db';
 import { album, favorite, photo, user } from '@/server/db/schema';
 import { fail, json, readJson, sessionUser, type Ctx } from '@/server/http';
+import { rotateFaces } from '@/server/faces';
 import { enqueue } from '@/server/photos/queue';
 import { removePhotoFiles } from '@/server/storage';
 
@@ -70,7 +71,10 @@ export async function PATCH(req: Request, { params }: Ctx<{ id: string }>) {
       Object.assign(set, { rotation: (((p.rotation + body.rotate) % 360) + 360) % 360, status: 'processing', attempts: 0 });
     }
     await db.update(photo).set(set).where(eq(photo.id, id));
-    if (body.rotate) enqueue(id);
+    if (body.rotate) {
+      await rotateFaces(id, body.rotate);
+      enqueue(id);
+    }
   }
 
   const [row] = await db

@@ -45,6 +45,7 @@ function MeMenu({ me, logout }: { me: Me; logout: () => Promise<void> }) {
           <p className="mail">{me.email}</p>
           <nav className="menu-links">
             <Link href="/perfil" role="menuitem" onClick={() => setOpen(false)}>Tu perfil</Link>
+            <Link href="/personas" role="menuitem" onClick={() => setOpen(false)}>Personas</Link>
             {me.role === 'admin' && <Link href="/admin" role="menuitem" onClick={() => setOpen(false)}>Administración</Link>}
           </nav>
           <form action={logout}>

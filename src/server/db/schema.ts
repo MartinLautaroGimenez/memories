@@ -303,6 +303,10 @@ export const face = pgTable(
     source: text('source').notNull().default('auto'),
     /** La persona fue confirmada a mano (no es solo una sugerencia). */
     confirmed: boolean('confirmed').notNull().default(false),
+    /** Cara ignorada a mano (alguien de fondo): no se sugiere ni se agrupa. */
+    hidden: boolean('hidden').notNull().default(false),
+    /** Personas que alguien dijo que esta cara no es, para no volver a sugerirlas. */
+    rejected: text('rejected').array().notNull().default(sql`'{}'::text[]`),
     createdAt: ts('created_at').notNull().defaultNow(),
   },
   t => [index('face_photo_idx').on(t.photoId), index('face_person_idx').on(t.personId)],

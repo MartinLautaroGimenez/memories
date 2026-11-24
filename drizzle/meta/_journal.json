@@ -15,6 +15,13 @@
       "when": 1795485028257,
       "tag": "0001_features",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1795487851190,
+      "tag": "0002_faces",
+      "breakpoints": true
     }
   ]
 }

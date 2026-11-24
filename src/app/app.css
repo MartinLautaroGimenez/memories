@@ -576,3 +576,72 @@ button.day-note{cursor:pointer;border-radius:4px}
 .projector:focus-visible{outline:0}
 .pj-btn:focus-visible{outline:2px solid #FF7A22;outline-offset:2px}
 @media (max-width:520px){ .pj-caption{bottom:calc(92px + env(safe-area-inset-bottom,0px))} .projector.idle .pj-caption{bottom:calc(var(--pjy) + 14px)} }
+
+/* ---------- Personas ---------- */
+.face-dot{position:relative;display:inline-grid;place-items:center;flex:none;border-radius:50%;overflow:hidden;background:var(--mount);color:var(--paper-soft);
+  font-weight:700;font-stretch:110%;box-shadow:0 0 0 2px var(--paper),0 1px 3px rgb(0 0 0 / .28)}
+.face-dot img{width:100%;height:100%;object-fit:cover;display:block}
+.who-list{display:flex;flex-wrap:wrap;align-items:center;gap:.35em .8em}
+.who{display:inline-flex;align-items:center;gap:.35em;white-space:nowrap}
+.who .face-dot{box-shadow:0 0 0 1.5px var(--paper-back)}
+.who.maybe{font-style:italic;font-weight:500;color:var(--paper-soft)}
+.who-list .muted,.who.muted{font-weight:500;color:var(--paper-soft)}
+.who-edit{font-weight:500;font-size:.95em}
+.btn.small{padding:.4rem .8rem;font-size:.85rem}
+.who-rows{list-style:none;margin:0 0 8px;padding:0;display:grid}
+.who-row{display:grid;grid-template-columns:auto minmax(0,1fr);gap:14px;align-items:center;padding:10px 0;border-top:1px solid rgb(38 46 51 / .1)}
+.who-row:first-child{border-top:0}
+.who-body{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px 12px;min-width:0}
+.who-body .input{flex:1 1 150px;min-width:0}
+.who-actions{display:inline-flex;align-items:center;gap:10px}
+.who-add{margin-top:14px;padding-top:14px;border-top:1px solid rgb(38 46 51 / .1)}
+.who-add label{display:block;font-weight:650;font-size:.92rem;margin-bottom:6px}
+.who-add .row,.who-group .row,.person-tools .row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.who-add .input{flex:1 1 180px}
+
+/* Fila de personas del álbum */
+.people-row{display:flex;gap:8px;align-items:center;overflow-x:auto;scrollbar-width:none;margin:-14px 0 26px;padding:4px 2px 6px}
+.people-row::-webkit-scrollbar{display:none}
+.person-chip{display:inline-flex;align-items:center;gap:8px;flex:none;border:0;border-radius:999px;padding:4px 12px 4px 4px;background:var(--chip);color:var(--ink);
+  font-weight:600;font-size:.9rem;font-stretch:95%;cursor:pointer;transition:background-color .25s,color .25s,transform .18s var(--ease-out)}
+.person-chip .face-dot{box-shadow:none}
+.person-chip small{color:var(--ink-soft);font-weight:500;font-variant-numeric:tabular-nums}
+.person-chip.on{background:var(--btn);color:var(--btn-ink)}
+.person-chip.on small{color:inherit;opacity:.7}
+.person-chip:active{transform:scale(.96)}
+.people-all{flex:none;margin-left:6px;color:var(--ink-soft);font-size:.88rem;font-weight:600;font-stretch:92%}
+
+/* Página de personas */
+.people-grid{list-style:none;margin:0 0 48px;padding:0;display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:28px 18px}
+.person-card{display:grid;justify-items:center;gap:6px;text-decoration:none;text-align:center;padding:10px 6px;border-radius:14px;transition:background-color .2s}
+.person-card:hover,.person-card:focus-visible{background:var(--chip)}
+.person-card .face-dot{margin-bottom:6px;box-shadow:0 0 0 5px var(--paper),0 14px 26px -10px var(--shadow),0 2px 4px rgb(0 0 0 / .18);transition:transform .35s var(--ease-out)}
+.person-card:hover .face-dot{transform:translateY(-3px) rotate(-2deg)}
+.person-card b{font-stretch:108%;font-weight:700;font-size:1.02rem;line-height:1.15}
+.person-card small{color:var(--ink-soft);font-size:.86rem}
+.who-groups{max-width:880px;margin-bottom:64px}
+.who-groups ul{list-style:none;margin:16px 0 0;padding:0;display:grid;gap:18px}
+.who-group{display:grid;gap:12px;padding-top:16px;border-top:1px solid rgb(38 46 51 / .1)}
+.who-group:first-child{border-top:0;padding-top:0}
+.who-faces{display:flex;flex-wrap:wrap;align-items:center}
+.who-faces .face-dot{margin-right:-10px}
+.who-faces .face-dot:nth-child(odd){transform:rotate(-3deg)}
+.who-more{margin-left:20px;font-weight:700;color:var(--paper-soft)}
+.who-group .input{flex:1 1 200px}
+.person-head{display:flex;flex-wrap:wrap;align-items:center;gap:20px 32px;margin-block:clamp(14px,3vw,30px) clamp(26px,4vw,44px)}
+.person-head .face-dot{box-shadow:0 0 0 6px var(--paper),0 22px 40px -16px var(--shadow),0 2px 5px rgb(0 0 0 / .2);transform:rotate(-2deg)}
+.person-head .home-sub{margin:10px 0 14px;max-width:none}
+.person-tools .input{flex:0 1 240px}
+.person-tools .form-error{margin-top:8px}
+.section-title{margin:8px 0 18px;font-stretch:112%;font-weight:760;font-size:1.25rem;letter-spacing:-.015em}
+.person-photos{list-style:none;margin:0 0 48px;padding:0;display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:26px 20px}
+.person-photos li{display:grid;gap:8px;align-content:start}
+.person-photos .print{display:block;text-decoration:none}
+.person-photos li:nth-child(3n+1) .print{transform:rotate(-1.2deg)}
+.person-photos li:nth-child(3n+2) .print{transform:rotate(.8deg)}
+.person-photos small{color:var(--ink-soft);font-size:.85rem;font-stretch:92%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.maybe-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:.9rem;font-weight:600}
+.maybe-row .face-dot{box-shadow:0 0 0 2px var(--table)}
+.faces-status{margin:4px 0 14px;padding-left:2px}
+.faces-status .meter{margin:10px 0 6px}
+.faces-status code{font-size:.85em;overflow-wrap:anywhere}

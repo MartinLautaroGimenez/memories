@@ -37,6 +37,21 @@ export type PhotoDTO = {
   /** Reacciones por tipo y las de quien mira. */
   reactions: Partial<Record<ReactionKind, number>>;
   myReactions: ReactionKind[];
+  /** Personas que aparecen (ids de `PersonChip`). Solo para miembros. */
+  persons?: string[];
+};
+
+/** Una persona que aparece en las fotos (reconocida o etiquetada a mano). No es lo mismo que una cuenta. */
+export type PersonChip = { id: string; name: string; face: string | null; count: number };
+
+export type FaceDTO = {
+  id: string;
+  /** Recuadro de 0 a 1 sobre la foto. Null en etiquetas a mano. */
+  box: { x: number; y: number; w: number; h: number } | null;
+  person: { id: string; name: string } | null;
+  /** Lo confirmó alguien (si no, es una sugerencia). */
+  confirmed: boolean;
+  manual: boolean;
 };
 
 export const REACTIONS = ['heart', 'laugh', 'wow'] as const;
@@ -91,6 +106,8 @@ export type AlbumDTO = {
   /** Los mapas están activados en la instalación. */
   mapsEnabled: boolean;
   facesEnabled: boolean;
+  /** Personas que aparecen en el álbum. */
+  appearing: PersonChip[];
 };
 
 export type ShareSettingsDTO = {

@@ -5,6 +5,7 @@ import { fmtCoords } from '@/lib/format';
 import type { AlbumCardDTO, AlbumDTO, PersonDTO, PhotoDTO, Role } from '@/lib/types';
 import { db } from './db';
 import { album, albumMember, favorite, photo, user } from './db/schema';
+import { albumPersons } from './people';
 import { getSettings } from './settings';
 
 type PhotoRow = typeof photo.$inferSelect;
@@ -201,13 +202,17 @@ export async function loadAlbum(
   const settings = await getSettings();
   const maps = settings.maps && a.showMap;
   const social = role === 'public' ? new Map<string, Social>() : await socialFor(a.id, opts.userId);
-  const photos = rows.map(r =>
-    toPhotoDTO(r.p, r.uploaderId ? { id: r.uploaderId, name: r.uploaderName! } : null, {
+  // Quién aparece: solo para miembros (en un link público no se muestran nombres)
+  const who = role === 'public' ? null : await albumPersons(a.id);
+  const photos = rows.map(r => {
+    const dto = toPhotoDTO(r.p, r.uploaderId ? { id: r.uploaderId, name: r.uploaderName! } : null, {
       fav: !!r.fav,
       gps: maps || role !== 'public',
       social: social.get(r.p.id),
-    }),
-  );
+    });
+    const persons = who?.byPhoto.get(r.p.id);
+    return persons ? { ...dto, persons } : dto;
+  });
   const dates = rows.filter(r => r.p.status === 'ready' && r.p.takenAt).map(r => +r.p.takenAt!);
   const withGps = rows.find(r => r.p.lat !== null && r.p.lng !== null);
   const lat = a.lat ?? withGps?.p.lat ?? null;
@@ -230,6 +235,7 @@ export async function loadAlbum(
     showMap: a.showMap,
     mapsEnabled: settings.maps,
     facesEnabled: settings.faces,
+    appearing: who?.appearing ?? [],
   };
 }
 

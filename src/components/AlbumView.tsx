@@ -15,6 +15,7 @@ import { takePendingFiles } from './handoff';
 import { IconBack, IconHeart, IconProjector, IconShare, IconUpload } from './icons';
 import { EASE, reducedMotion } from './motion';
 import type { LocalPhoto } from './Print';
+import { PeopleFilter } from './People';
 import { Projector } from './Projector';
 import { SettingsSheet, ShareSheet } from './ShareSheet';
 import { Sheet } from './Sheet';
@@ -75,6 +76,7 @@ export function AlbumView({ album, me, openPhoto }: { album: AlbumDTO; me: Me; o
   const [sheet, setSheet] = useState<'share' | 'settings' | 'shift' | null>(null);
   const [moved, setMoved] = useState(false);
   const [onlyFav, setOnlyFav] = useState(false);
+  const [person, setPerson] = useState<string | null>(null);
   const [selecting, setSelecting] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [ordering, setOrdering] = useState(false);
@@ -100,8 +102,14 @@ export function AlbumView({ album, me, openPhoto }: { album: AlbumDTO; me: Me; o
 
   const ordered = useMemo(() => (sortMode === 'date' ? [...photos].sort(byDate) : photos), [photos, sortMode]);
   const visible = useMemo(
-    () => ordered.filter(p => (p.status !== 'failed' || isOwner || p.by?.id === me?.id || p.id.startsWith('local-')) && (!onlyFav || (p.status === 'ready' && p.fav))),
-    [ordered, isOwner, me?.id, onlyFav],
+    () =>
+      ordered.filter(
+        p =>
+          (p.status !== 'failed' || isOwner || p.by?.id === me?.id || p.id.startsWith('local-')) &&
+          (!onlyFav || (p.status === 'ready' && p.fav)) &&
+          (!person || (p.status === 'ready' && !!p.persons?.includes(person))),
+      ),
+    [ordered, isOwner, me?.id, onlyFav, person],
   );
   const ready = useMemo(() => visible.filter(p => p.status === 'ready'), [visible]);
   // El mapa aparece si el admin lo habilitó, el álbum lo muestra y alguna foto trae GPS
@@ -458,6 +466,8 @@ export function AlbumView({ album, me, openPhoto }: { album: AlbumDTO; me: Me; o
         )}
       </header>
 
+      {!isPublic && !ordering && album.appearing.length > 0 && <PeopleFilter people={album.appearing} active={person} onPick={setPerson} />}
+
       {guestUpload && (
         <p className="guest-note">
           {guestName ? `Hola ${guestName}: soltá tus fotos acá o tocá Subir fotos.` : '¿Estuviste? Subí tus fotos, no hace falta crear una cuenta.'}
@@ -533,6 +543,7 @@ export function AlbumView({ album, me, openPhoto }: { album: AlbumDTO; me: Me; o
           onReact={me && !isPublic ? react : undefined}
           onCommentsCount={setCommentsCount}
           onProject={ready.length > 1 ? i => { setViewer(null); setProjector({ start: i }); } : undefined}
+          people={me && !isPublic ? { canEdit: canUpload, onChanged: () => router.refresh() } : undefined}
           sourceFor={sourceFor}
           onIndex={i => mode === 'carrusel' && carousel.current?.goTo(i)}
           onNote={saveNote}

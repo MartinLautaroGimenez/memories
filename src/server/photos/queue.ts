@@ -3,6 +3,7 @@ import { and, eq, lt, sql } from 'drizzle-orm';
 import { db } from '../db';
 import { photo } from '../db/schema';
 import { env } from '../env';
+import { kickFaces } from '../faces';
 import { readBuffer, storagePath } from '../storage';
 import { renderPhoto } from './render';
 
@@ -67,6 +68,7 @@ export async function processPhoto(id: string) {
         error: null,
       })
       .where(eq(photo.id, id));
+    kickFaces();
   } catch (err) {
     const failed = attempts >= MAX_ATTEMPTS;
     console.error(`[memories] no se pudo procesar ${p.originalName} (intento ${attempts}):`, err instanceof Error ? err.message : err);

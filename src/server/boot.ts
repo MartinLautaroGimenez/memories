@@ -15,6 +15,8 @@ export async function boot() {
     }
     const { resumePending } = await import('./photos/queue');
     await resumePending();
+    const { kickFaces } = await import('./faces');
+    kickFaces();
   } catch (err) {
     console.error('[memories] No se pudo preparar la base de datos:', err);
     if (process.env.NODE_ENV === 'production') process.exit(1);

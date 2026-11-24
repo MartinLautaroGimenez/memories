@@ -20,3 +20,4 @@ export const IconExpand = () => (<svg {...base}><path d="M4.5 9V4.5H9M15 4.5h4.5
 export const IconShrink = () => (<svg {...base}><path d="M9 4.5V9H4.5M19.5 9H15V4.5M15 19.5V15h4.5M4.5 15H9v4.5" /></svg>);
 /** Proyector de diapositivas: el carro redondo arriba y la lente adelante. */
 export const IconProjector = () => (<svg {...base}><circle cx="9" cy="7" r="3.2" /><rect x="3.5" y="11" width="13" height="8" rx="1.6" /><path d="M16.5 13.5l4-1.8v6.6l-4-1.8" /><circle cx="8" cy="15" r="1.6" /></svg>);
+export const IconPeople = () => (<svg {...base}><circle cx="9" cy="8.5" r="3.2" /><path d="M3.5 19c.6-3.2 2.8-5 5.5-5s4.9 1.8 5.5 5" /><circle cx="16.5" cy="9.5" r="2.6" /><path d="M15.8 14.1c2.4.1 4.1 1.7 4.7 4.4" /></svg>);

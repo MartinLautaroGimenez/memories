@@ -9,7 +9,7 @@ import Link from 'next/link';
 import { fmtDate } from '@/lib/format';
 import { Print } from './Print';
 import { setPendingFiles } from './handoff';
-import { IconGlobe, IconPlus } from './icons';
+import { IconGlobe, IconPeople, IconPlus } from './icons';
 import { dealIn } from './motion';
 import { Sheet } from './Sheet';
 import { Stack } from './Stack';
@@ -17,7 +17,7 @@ import { useToast } from './Toast';
 import { useDropFiles } from './useDropFiles';
 
 /** "Tu mesa": todas las pilas de álbumes. */
-export function Table({ cards, meId, memory, atlas }: { cards: AlbumCardDTO[]; meId: string; memory?: OnThisDay | null; atlas?: boolean }) {
+export function Table({ cards, meId, memory, atlas, people }: { cards: AlbumCardDTO[]; meId: string; memory?: OnThisDay | null; atlas?: boolean; people?: boolean }) {
   const [creating, setCreating] = useState<{ files: File[] } | null>(null);
   const grid = useRef<HTMLDivElement>(null);
   const total = cards.reduce((n, c) => n + c.count, 0);
@@ -40,6 +40,12 @@ export function Table({ cards, meId, memory, atlas }: { cards: AlbumCardDTO[]; m
             </p>
           )}
           <div className="home-actions">
+            {people && (
+              <Link className="btn ghost" href="/personas">
+                <IconPeople />
+                Personas
+              </Link>
+            )}
             {atlas && (
               <Link className="btn ghost" href="/atlas">
                 <IconGlobe />
