@@ -7,6 +7,7 @@ import { plural, rangeText, sameDay } from '@/lib/format';
 import { namesList } from '@/lib/people';
 import type { AlbumDTO, PhotoDTO, ReactionKind } from '@/lib/types';
 import { DayHead, dayGroups, MoreMenu, Reorder, SelectionBar, ShiftSheet, type ShiftScope } from './AlbumExtras';
+import { AlbumMap, type AlbumMapHandle } from './AlbumMap';
 import { Avatars } from './Avatars';
 import { Carousel, type CarouselHandle } from './Carousel';
 import { DateStamp } from './DateStamp';
@@ -65,7 +66,7 @@ export function AlbumView({ album, me, openPhoto }: { album: AlbumDTO; me: Me; o
   const canEditPhoto = useCallback((p: PhotoDTO) => isOwner || (canUpload && !!me && p.by?.id === me.id), [isOwner, canUpload, me]);
 
   const [photos, setPhotos] = useState<LocalPhoto[]>(album.photos);
-  const [mode, setMode] = useState<'mesa' | 'carrusel'>('mesa');
+  const [mode, setMode] = useState<'mesa' | 'carrusel' | 'mapa'>('mesa');
   const [viewer, setViewer] = useState<{ start: number } | null>(() => {
     const i = openPhoto ? album.photos.filter(p => p.status === 'ready').findIndex(p => p.id === openPhoto) : -1;
     return i >= 0 ? { start: i } : null;
@@ -80,6 +81,7 @@ export function AlbumView({ album, me, openPhoto }: { album: AlbumDTO; me: Me; o
   const [dayNotes, setDayNotes] = useState(album.dayNotes);
   const spread = useRef<SpreadHandle>(null);
   const carousel = useRef<CarouselHandle>(null);
+  const mapRef = useRef<AlbumMapHandle>(null);
   const titleRef = useRef<HTMLHeadingElement>(null);
   const fileInput = useRef<HTMLInputElement>(null);
   const seg = useRef<HTMLDivElement>(null);
@@ -100,6 +102,8 @@ export function AlbumView({ album, me, openPhoto }: { album: AlbumDTO; me: Me; o
     [ordered, isOwner, me?.id, onlyFav],
   );
   const ready = useMemo(() => visible.filter(p => p.status === 'ready'), [visible]);
+  // El mapa aparece si el admin lo habilitó, el álbum lo muestra y alguna foto trae GPS
+  const hasMap = album.mapsEnabled && album.showMap && ready.some(p => p.lat != null && p.lng != null);
   const favCount = useMemo(() => photos.filter(p => p.fav && p.status === 'ready').length, [photos]);
   const [from, to] = useMemo(() => {
     const dates = photos.filter(p => p.status === 'ready').map(p => p.takenAt).filter((d): d is string => !!d).sort();
@@ -164,6 +168,7 @@ export function AlbumView({ album, me, openPhoto }: { album: AlbumDTO; me: Me; o
         const i = ready.findIndex(p => p.id === id);
         return i >= 0 ? carousel.current?.windowFor(i) ?? null : null;
       }
+      if (mode === 'mapa') return mapRef.current?.printFor(id) ?? null;
       return spread.current?.printFor(id) ?? null;
     },
     [mode, ready],
@@ -385,6 +390,11 @@ export function AlbumView({ album, me, openPhoto }: { album: AlbumDTO; me: Me; o
                 <button type="button" aria-pressed={mode === 'carrusel'} onClick={() => { setSelecting(false); setMode('carrusel'); }}>
                   Carrusel
                 </button>
+                {hasMap && (
+                  <button type="button" aria-pressed={mode === 'mapa'} onClick={() => { setSelecting(false); setMode('mapa'); }}>
+                    Mapa
+                  </button>
+                )}
               </div>
             )}
             {me && (favCount > 0 || onlyFav) && (
@@ -460,6 +470,8 @@ export function AlbumView({ album, me, openPhoto }: { album: AlbumDTO; me: Me; o
                 : 'Cuando alguien suba fotos, van a aparecer acá.'}
           </p>
         </div>
+      ) : mode === 'mapa' && hasMap ? (
+        <AlbumMap ref={mapRef} photos={ready} shareToken={album.shareToken} onOpen={open} />
       ) : mode === 'carrusel' && ready.length ? (
         <Carousel ref={carousel} photos={ready} title={album.title} shareToken={album.shareToken} onOpen={i => setViewer({ start: i })} />
       ) : (

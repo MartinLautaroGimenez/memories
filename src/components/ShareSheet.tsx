@@ -224,7 +224,7 @@ export function ShareSheet({ album, meId, onClose }: { album: { id: string; titl
   );
 }
 
-export function SettingsSheet({ album, isOwner, meId, onClose }: { album: { id: string; title: string; place: string }; isOwner: boolean; meId: string; onClose: () => void }) {
+export function SettingsSheet({ album, isOwner, meId, onClose }: { album: { id: string; title: string; place: string; showMap: boolean; mapsEnabled: boolean }; isOwner: boolean; meId: string; onClose: () => void }) {
   const router = useRouter();
   const toast = useToast();
   const [error, setError] = useState('');
@@ -236,7 +236,7 @@ export function SettingsSheet({ album, isOwner, meId, onClose }: { album: { id: 
     const fd = new FormData(e.currentTarget);
     setBusy(true);
     try {
-      await call(`/api/albums/${album.id}`, 'PATCH', { title: fd.get('title'), place: fd.get('place') });
+      await call(`/api/albums/${album.id}`, 'PATCH', { title: fd.get('title'), place: fd.get('place'), ...(album.mapsEnabled ? { showMap: fd.get('showMap') === 'on' } : {}) });
       toast('Cambios guardados');
       router.refresh();
       onClose();
@@ -277,6 +277,15 @@ export function SettingsSheet({ album, isOwner, meId, onClose }: { album: { id: 
             <label htmlFor="ePlace">Lugar</label>
             <input className="input" id="ePlace" name="place" maxLength={160} defaultValue={album.place} />
           </div>
+          {album.mapsEnabled && (
+            <div className="setting">
+              <label className="toggle" htmlFor="eMap">
+                <span>Mostrar el mapa del álbum</span>
+                <input type="checkbox" id="eMap" name="showMap" defaultChecked={album.showMap} />
+              </label>
+              <p className="hint">Muestra dónde se sacó cada foto, si el celular guardó la ubicación. Apagalo si preferís no compartir lugares exactos (por ejemplo, tu casa).</p>
+            </div>
+          )}
           <div className="form-actions">
             <button className="btn" type="submit" disabled={busy}>
               Guardar cambios

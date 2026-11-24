@@ -9,7 +9,7 @@ import Link from 'next/link';
 import { fmtDate } from '@/lib/format';
 import { Print } from './Print';
 import { setPendingFiles } from './handoff';
-import { IconPlus } from './icons';
+import { IconGlobe, IconPlus } from './icons';
 import { dealIn } from './motion';
 import { Sheet } from './Sheet';
 import { Stack } from './Stack';
@@ -17,7 +17,7 @@ import { useToast } from './Toast';
 import { useDropFiles } from './useDropFiles';
 
 /** "Tu mesa": todas las pilas de álbumes. */
-export function Table({ cards, meId, memory }: { cards: AlbumCardDTO[]; meId: string; memory?: OnThisDay | null }) {
+export function Table({ cards, meId, memory, atlas }: { cards: AlbumCardDTO[]; meId: string; memory?: OnThisDay | null; atlas?: boolean }) {
   const [creating, setCreating] = useState<{ files: File[] } | null>(null);
   const grid = useRef<HTMLDivElement>(null);
   const total = cards.reduce((n, c) => n + c.count, 0);
@@ -39,10 +39,18 @@ export function Table({ cards, meId, memory }: { cards: AlbumCardDTO[]; meId: st
               {plural(cards.length, 'álbum', 'álbumes')} y {plural(total, 'foto', 'fotos')} de viajes y eventos. Abrí una pila para ver el álbum completo.
             </p>
           )}
-          <button className="btn" type="button" onClick={() => setCreating({ files: [] })}>
-            <IconPlus />
-            Nuevo álbum
-          </button>
+          <div className="home-actions">
+            {atlas && (
+              <Link className="btn ghost" href="/atlas">
+                <IconGlobe />
+                Atlas
+              </Link>
+            )}
+            <button className="btn" type="button" onClick={() => setCreating({ files: [] })}>
+              <IconPlus />
+              Nuevo álbum
+            </button>
+          </div>
         </div>
       </div>
 

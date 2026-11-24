@@ -1,9 +1,11 @@
 import { Table } from '@/components/Table';
-import { listAlbumCards, onThisDay } from '@/server/albums';
+import { atlasAlbums, listAlbumCards, onThisDay } from '@/server/albums';
 import { requireUser } from '@/server/session';
+import { getSettings } from '@/server/settings';
 
 export default async function HomePage() {
   const me = await requireUser();
-  const [cards, memory] = await Promise.all([listAlbumCards(me.id), onThisDay(me.id)]);
-  return <Table cards={cards} meId={me.id} memory={memory} />;
+  const [cards, memory, settings] = await Promise.all([listAlbumCards(me.id), onThisDay(me.id), getSettings()]);
+  const atlas = settings.maps && cards.length > 0 && (await atlasAlbums(me.id)).length > 0;
+  return <Table cards={cards} meId={me.id} memory={memory} atlas={atlas} />;
 }

@@ -254,3 +254,21 @@ export async function onThisDay(userId: string, today = new Date()): Promise<OnT
   if (!row) return null;
   return { photo: toPhotoDTO(rawPhoto(row)), album: { slug: row.album_slug, title: row.album_title }, years: row.years };
 }
+
+/** Álbumes con ubicación, para el Atlas: el centro de las fotos con GPS (o el del álbum). */
+export async function atlasAlbums(userId: string) {
+  const r = await db.execute<{ slug: string; title: string; place: string; lat: number; lng: number; count: number; from: Date | null }>(sql`
+    select a.slug, a.title, a.place,
+      coalesce(a.lat, avg(p.lat)) as lat, coalesce(a.lng, avg(p.lng)) as lng,
+      count(p.id) filter (where p.status = 'ready')::int as count,
+      min(p.taken_at) filter (where p.status = 'ready') as "from"
+    from album a
+    join album_member m on m.album_id = a.id and m.user_id = ${userId}
+    left join photo p on p.album_id = a.id
+    where a.show_map
+    group by a.id
+    having coalesce(a.lat, avg(p.lat)) is not null
+    order by min(p.taken_at) desc nulls last
+  `);
+  return r.rows.map(x => ({ ...x, lat: Number(x.lat), lng: Number(x.lng), from: x.from ? new Date(x.from).toISOString() : null }));
+}
