@@ -17,3 +17,9 @@ coverage/
 /db/
 .DS_Store
 .claude/settings.local.json
+
+# Datos locales de desarrollo y artefactos de pruebas
+/data/
+next-env.d.ts
+/test-results/
+/playwright-report/
