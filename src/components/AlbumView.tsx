@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { plural, rangeText, sameDay } from '@/lib/format';
 import { namesList } from '@/lib/people';
 import type { AlbumDTO, PhotoDTO, ReactionKind } from '@/lib/types';
@@ -15,6 +15,7 @@ import { IconBack, IconHeart, IconShare, IconUpload } from './icons';
 import { EASE, reducedMotion } from './motion';
 import type { LocalPhoto } from './Print';
 import { SettingsSheet, ShareSheet } from './ShareSheet';
+import { Sheet } from './Sheet';
 import { Spread, type SpreadHandle } from './Spread';
 import { useToast } from './Toast';
 import { useDropFiles } from './useDropFiles';
@@ -22,6 +23,16 @@ import { useUploads } from './useUploads';
 import { Viewer, type PhotoEdit } from './Viewer';
 
 type Me = { id: string; name: string } | null;
+
+/* Nombre del invitado guardado en este navegador */
+const NAME_KEY = 'memories-guest-name';
+const NAME_EVENT = 'memories-guest-name';
+const readName = () => { try { return localStorage.getItem(NAME_KEY); } catch { return null; } };
+const subscribeName = (cb: () => void) => {
+  window.addEventListener('storage', cb);
+  window.addEventListener(NAME_EVENT, cb);
+  return () => { window.removeEventListener('storage', cb); window.removeEventListener(NAME_EVENT, cb); };
+};
 
 async function api(url: string, method: string, body?: unknown) {
   const res = await fetch(url, { method, headers: body ? { 'content-type': 'application/json' } : undefined, body: body ? JSON.stringify(body) : undefined }).catch(() => null);
@@ -42,6 +53,15 @@ export function AlbumView({ album, me, openPhoto }: { album: AlbumDTO; me: Me; o
   const isPublic = album.role === 'public';
   const canUpload = album.role === 'owner' || album.role === 'contributor';
   const isOwner = album.role === 'owner';
+  // Invitados sin cuenta que entran por un link público con subida permitida
+  const guestUpload = isPublic && !!album.allowUpload && !!album.shareToken;
+  const storedName = useSyncExternalStore(subscribeName, readName, () => null);
+  const guestName = guestUpload ? storedName : null;
+  const setGuestName = (name: string) => {
+    try { localStorage.setItem(NAME_KEY, name); } catch {}
+    window.dispatchEvent(new Event(NAME_EVENT));
+  };
+  const [askName, setAskName] = useState<null | { files?: File[] }>(null);
   const canEditPhoto = useCallback((p: PhotoDTO) => isOwner || (canUpload && !!me && p.by?.id === me.id), [isOwner, canUpload, me]);
 
   const [photos, setPhotos] = useState<LocalPhoto[]>(album.photos);
@@ -86,13 +106,24 @@ export function AlbumView({ album, me, openPhoto }: { album: AlbumDTO; me: Me; o
     return dates.length ? [dates[0], dates[dates.length - 1]] : [album.from, album.to];
   }, [photos, album.from, album.to]);
 
+  const guestApi = guestUpload ? `/api/s/${encodeURIComponent(album.shareToken!)}/photos` : undefined;
   const uploads = useUploads({
     albumId: album.id,
     me,
     setPhotos,
     initialPending: album.photos.filter(p => p.status === 'processing').map(p => p.id),
     toast,
+    uploadUrl: guestApi,
+    statusUrl: guestApi,
+    guestName,
   });
+
+  /** Sube fotos; si es un invitado sin nombre, primero se lo pregunta. */
+  const addFiles = useCallback((files: File[]) => {
+    if (guestUpload && !guestName) setAskName({ files });
+    else uploads.add(files);
+  }, [guestUpload, guestName, uploads]);
+  const pickFiles = () => (guestUpload && !guestName ? setAskName({}) : fileInput.current?.click());
 
   useEffect(() => {
     const files = takePendingFiles();
@@ -101,7 +132,7 @@ export function AlbumView({ album, me, openPhoto }: { album: AlbumDTO; me: Me; o
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const dragging = useDropFiles(canUpload && !ordering ? uploads.add : null);
+  const dragging = useDropFiles((canUpload || guestUpload) && !ordering ? addFiles : null);
 
   // El título se expande con el eje de ancho de la tipografía.
   useEffect(() => {
@@ -387,9 +418,9 @@ export function AlbumView({ album, me, openPhoto }: { album: AlbumDTO; me: Me; o
                 { label: isOwner ? 'Editar álbum' : 'Salir del álbum', onClick: () => setSheet('settings'), hidden: isPublic },
               ]}
             />
-            {canUpload && (
+            {(canUpload || guestUpload) && (
               <>
-                <button className="btn" type="button" onClick={() => fileInput.current?.click()}>
+                <button className="btn" type="button" onClick={pickFiles}>
                   <IconUpload />
                   Subir fotos
                 </button>
@@ -400,7 +431,7 @@ export function AlbumView({ album, me, openPhoto }: { album: AlbumDTO; me: Me; o
                   multiple
                   hidden
                   onChange={e => {
-                    uploads.add([...(e.target.files ?? [])]);
+                    addFiles([...(e.target.files ?? [])]);
                     e.target.value = '';
                   }}
                 />
@@ -409,6 +440,12 @@ export function AlbumView({ album, me, openPhoto }: { album: AlbumDTO; me: Me; o
           </div>
         )}
       </header>
+
+      {guestUpload && (
+        <p className="guest-note">
+          {guestName ? `Hola ${guestName}: soltá tus fotos acá o tocá Subir fotos.` : '¿Estuviste? Subí tus fotos, no hace falta crear una cuenta.'}
+        </p>
+      )}
 
       {ordering ? (
         <Reorder photos={ordered.filter(p => p.status === 'ready')} shareToken={album.shareToken} onSave={saveOrder} onCancel={() => setOrdering(false)} />
@@ -489,6 +526,29 @@ export function AlbumView({ album, me, openPhoto }: { album: AlbumDTO; me: Me; o
       {sheet === 'settings' && me && <SettingsSheet album={album} isOwner={isOwner} meId={me.id} onClose={() => setSheet(null)} />}
       {sheet === 'shift' && (
         <ShiftSheet photos={photos} selected={selecting ? sel : []} mine={isOwner ? null : me?.id ?? null} onApply={applyShift} onClose={() => setSheet(null)} />
+      )}
+
+      {askName && (
+        <Sheet title="¿Cómo te llamás?" sub="Así todos saben quién subió cada foto. Lo guardamos en este celu para la próxima." onClose={() => setAskName(null)}>
+          <form
+            onSubmit={e => {
+              e.preventDefault();
+              const name = String(new FormData(e.currentTarget).get('guest') ?? '').trim().replace(/\s+/g, ' ').slice(0, 40);
+              if (!name) return;
+              setGuestName(name);
+              const pending = askName.files;
+              setAskName(null);
+              if (pending?.length) setTimeout(() => uploads.add(pending), 0);
+              else fileInput.current?.click();
+            }}
+          >
+            <div className="field">
+              <label htmlFor="guest">Tu nombre</label>
+              <input className="input" id="guest" name="guest" required maxLength={40} autoComplete="given-name" />
+            </div>
+            <button className="btn" type="submit">{askName.files?.length ? `Subir ${plural(askName.files.length, 'foto', 'fotos')}` : 'Elegir fotos'}</button>
+          </form>
+        </Sheet>
       )}
 
       {dragging && (

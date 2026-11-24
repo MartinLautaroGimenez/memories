@@ -483,7 +483,7 @@ function BackData({ p, albumPlace, exposure, canEdit, onSave, tab }: {
       {(p.by || p.guestName) && (
         <>
           <dt>Subida por</dt>
-          <dd>{p.by?.name ?? `${p.guestName} (invitado)`}</dd>
+          <dd>{p.by?.name ?? `${p.guestName} (sin cuenta)`}</dd>
         </>
       )}
       <dt>Archivo</dt>

@@ -143,7 +143,7 @@ export function ShiftSheet({ photos, selected, mine, onApply, onClose }: {
     const m = new Map<string, string>();
     for (const p of own) {
       if (p.by) m.set(p.by.id, p.by.name);
-      else if (p.guestName) m.set(`guest:${p.guestName}`, `${p.guestName} (invitado)`);
+      else if (p.guestName) m.set(`guest:${p.guestName}`, `${p.guestName} (sin cuenta)`);
     }
     return [...m];
   }, [own]);

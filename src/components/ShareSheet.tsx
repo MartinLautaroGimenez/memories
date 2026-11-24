@@ -196,6 +196,28 @@ export function ShareSheet({ album, meId, onClose }: { album: { id: string; titl
               }}
             />
           </label>
+          {s?.guestUploads && (
+            <>
+              <label className="toggle" htmlFor="tgUp">
+                Los invitados pueden subir fotos sin cuenta
+                <input
+                  type="checkbox"
+                  id="tgUp"
+                  checked={link.allowUpload}
+                  onChange={e => {
+                    const v = e.target.checked;
+                    run(
+                      () => call(`${base}/share`, 'POST', { link: { enabled: true, allowUpload: v } }),
+                      v ? 'Los invitados ya pueden subir fotos' : 'El link volvió a ser solo para mirar',
+                      cur => ({ ...cur, link: cur.link && { ...cur.link, allowUpload: v } }),
+                    );
+                  }}
+                />
+              </label>
+              <p className="hint">Ideal para casamientos y cumpleaños: cada invitado pone su nombre y sube sus fotos desde el celu.</p>
+            </>
+          )}
+          {link.url && <QrBlock url={link.url} upload={link.allowUpload} title={album.title} />}
         </>
       )}
     </Sheet>
@@ -283,5 +305,38 @@ export function SettingsSheet({ album, isOwner, meId, onClose }: { album: { id: 
         </button>
       )}
     </Sheet>
+  );
+}
+
+/** Código QR del link público, para mostrar en pantalla o imprimir en una tarjeta. */
+function QrBlock({ url, upload, title }: { url: string; upload: boolean; title: string }) {
+  const [svg, setSvg] = useState('');
+  const [open, setOpen] = useState(false);
+  useEffect(() => {
+    if (!open) return;
+    let alive = true;
+    import('qrcode').then(QR => QR.toString(url, { type: 'svg', margin: 1, errorCorrectionLevel: 'M', color: { dark: '#172024', light: '#ffffff' } })).then(s => alive && setSvg(s));
+    return () => { alive = false; };
+  }, [url, open]);
+  async function download() {
+    const QR = await import('qrcode');
+    const a = document.createElement('a');
+    a.href = await QR.toDataURL(url, { width: 1024, margin: 2, errorCorrectionLevel: 'M' });
+    a.download = `QR ${title}.png`;
+    a.click();
+  }
+  const token = url.split('/s/')[1];
+  if (!open) return <button className="btn ghost" type="button" style={{ marginTop: 14 }} onClick={() => setOpen(true)}>Mostrar código QR</button>;
+  return (
+    <div className="qr-block">
+      <div className="qr" role="img" aria-label={`Código QR de ${url}`} dangerouslySetInnerHTML={{ __html: svg }} />
+      <div className="qr-side">
+        <p className="hint" style={{ marginTop: 0 }}>{upload ? 'Quien lo escanee puede ver el álbum y subir sus fotos.' : 'Quien lo escanee puede ver el álbum.'}</p>
+        <div className="form-actions">
+          <button className="btn ghost" type="button" onClick={download}>Descargar QR</button>
+          {token && <a className="btn ghost" href={`/s/${token}/tarjeta`} target="_blank" rel="noopener">Imprimir tarjeta</a>}
+        </div>
+      </div>
+    </div>
   );
 }

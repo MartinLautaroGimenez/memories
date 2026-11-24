@@ -462,3 +462,26 @@ button.day-note{cursor:pointer;border-radius:4px}
 .comment-form textarea:focus{outline:2px solid var(--paper-stamp);outline-offset:1px;border-color:transparent}
 .comment-form .btn{background:var(--paper-btn);color:var(--paper-btn-ink)}
 @media (max-width:640px){.comments{left:12px;right:12px;width:auto;top:auto;height:min(62dvh,520px);bottom:calc(env(safe-area-inset-bottom,0px) + 12px)}}
+
+/* ---------- QR y tarjeta para eventos ---------- */
+.qr-block{display:flex;gap:16px;align-items:center;flex-wrap:wrap;margin-top:14px;padding:12px;border-radius:10px;background:rgb(38 46 51 / .05)}
+.qr{width:140px;height:140px;flex:none;background:#fff;border-radius:6px;padding:6px}
+.qr svg{width:100%;height:100%;display:block}
+.qr-side{flex:1 1 180px;min-width:0}
+.print-card-page{min-height:100dvh;display:grid;place-items:center;gap:20px;padding-block:32px}
+.print-card{width:min(420px,100%);background:#fff;color:#172024;border-radius:4px;padding:34px 30px 26px;text-align:center;box-shadow:0 0 0 .5px rgb(0 0 0 / .08),0 24px 50px -24px rgb(0 0 0 / .45)}
+.print-card h1{margin:4px 0 18px;font-stretch:125%;font-weight:800;font-size:clamp(2rem,7vw,2.8rem);letter-spacing:-.04em;line-height:.95;text-wrap:balance}
+.card-hand{margin:0;font-family:var(--font-hand);font-size:1.9rem;color:#22357F;line-height:1}
+.card-qr{width:min(260px,70vw);margin:0 auto 16px}
+.card-qr svg{width:100%;height:auto;display:block}
+.card-steps{margin:0 0 10px;font-size:1rem;line-height:1.45}
+.card-url{margin:0;color:#536168;font-size:.8rem;font-stretch:85%;overflow-wrap:anywhere}
+@media print{
+  body{background:#fff!important;padding:0}
+  .surface,.fx,.toast,.print-btn{display:none!important}
+  .print-card-page{min-height:auto;padding:0}
+  .print-card{box-shadow:none;border:1px dashed #9aa5ab;margin-top:12mm}
+}
+.guest-note{margin:-8px 0 24px;font-family:var(--font-hand);font-size:clamp(1.5rem,3vw,1.9rem);line-height:1.05;color:var(--pen)}
+:root[data-theme="dark"] .guest-note{color:var(--stamp-ink)}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .guest-note{color:var(--stamp-ink)}}

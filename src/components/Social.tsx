@@ -118,7 +118,7 @@ export function CommentsPanel({ photoId, onCount, onClose }: { photoId: string; 
             <li key={c.id} className="note-slip" style={{ ['--tilt' as string]: `${i % 2 ? 0.8 : -0.8}deg` }}>
               <div className="slip-head">
                 <Avatar name={c.author.name} color={c.author.color} />
-                <span className="slip-name">{c.author.name}{c.author.guest ? ' (invitado)' : ''}</span>
+                <span className="slip-name">{c.author.name}{c.author.guest ? ' (sin cuenta)' : ''}</span>
                 <time dateTime={c.createdAt}>{ago(c.createdAt)}</time>
                 {c.canDelete && (
                   <button className="link-btn slip-del" type="button" onClick={() => remove(c.id)} aria-label={`Borrar el comentario de ${c.author.name}`}>Borrar</button>

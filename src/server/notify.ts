@@ -50,7 +50,7 @@ async function sendUploadDigest(albumId: string, by: { userId?: string | null; g
     .where(and(eq(photo.albumId, albumId), who, eq(photo.status, 'ready'), gte(photo.createdAt, since)));
   if (!n) return;
   const [u] = by.userId ? await db.select({ name: user.name }).from(user).where(eq(user.id, by.userId)) : [];
-  const name = u?.name.split(' ')[0] ?? `${by.guestName ?? 'Alguien'} (invitado)`;
+  const name = u?.name.split(' ')[0] ?? `${by.guestName ?? 'Alguien'} (sin cuenta)`;
   for (const r of await recipients(albumId, by.userId ?? null)) {
     await trySendMail({
       to: r.email,

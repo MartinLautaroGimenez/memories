@@ -5,6 +5,7 @@ import { PasswordForm } from '@/components/AuthForms';
 import { TopBar } from '@/components/TopBar';
 import { activeLink, linkUnlocked } from '@/server/access';
 import { findAlbumById, loadAlbum } from '@/server/albums';
+import { getSettings } from '@/server/settings';
 
 export const dynamic = 'force-dynamic';
 export const metadata: Metadata = { title: 'Álbum compartido', referrer: 'no-referrer' };
@@ -34,6 +35,7 @@ export default async function SharePage({ params }: { params: Promise<{ token: s
   const dto = await loadAlbum(album, 'public');
   dto.shareToken = token;
   dto.allowDownload = link.allowDownload;
+  dto.allowUpload = link.allowUpload && (await getSettings()).guestUploads;
   return (
     <>
       <TopBar />
