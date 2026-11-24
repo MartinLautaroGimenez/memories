@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { plural, rangeText, sameDay } from '@/lib/format';
 import { namesList } from '@/lib/people';
-import type { AlbumDTO, PhotoDTO } from '@/lib/types';
+import type { AlbumDTO, PhotoDTO, ReactionKind } from '@/lib/types';
 import { DayHead, dayGroups, MoreMenu, Reorder, SelectionBar, ShiftSheet, type ShiftScope } from './AlbumExtras';
 import { Avatars } from './Avatars';
 import { Carousel, type CarouselHandle } from './Carousel';
@@ -35,7 +35,8 @@ function byDate(a: LocalPhoto, b: LocalPhoto) {
   return a.takenAt < b.takenAt ? -1 : a.takenAt > b.takenAt ? 1 : 0;
 }
 
-export function AlbumView({ album, me }: { album: AlbumDTO; me: Me }) {
+/** `openPhoto`: id de una foto para abrir de entrada (links con ?foto=, por ejemplo desde un aviso por mail). */
+export function AlbumView({ album, me, openPhoto }: { album: AlbumDTO; me: Me; openPhoto?: string }) {
   const router = useRouter();
   const toast = useToast();
   const isPublic = album.role === 'public';
@@ -45,7 +46,10 @@ export function AlbumView({ album, me }: { album: AlbumDTO; me: Me }) {
 
   const [photos, setPhotos] = useState<LocalPhoto[]>(album.photos);
   const [mode, setMode] = useState<'mesa' | 'carrusel'>('mesa');
-  const [viewer, setViewer] = useState<{ start: number } | null>(null);
+  const [viewer, setViewer] = useState<{ start: number } | null>(() => {
+    const i = openPhoto ? album.photos.filter(p => p.status === 'ready').findIndex(p => p.id === openPhoto) : -1;
+    return i >= 0 ? { start: i } : null;
+  });
   const [sheet, setSheet] = useState<'share' | 'settings' | 'shift' | null>(null);
   const [moved, setMoved] = useState(false);
   const [onlyFav, setOnlyFav] = useState(false);
@@ -180,6 +184,22 @@ export function AlbumView({ album, me }: { album: AlbumDTO; me: Me }) {
     uploads.watch(id);
     toast('Girando la foto');
   }, [toast, uploads]);
+
+  const react = useCallback(async (id: string, kind: ReactionKind, on: boolean) => {
+    setPhotos(ps => ps.map(p => (p.id === id ? {
+      ...p,
+      reactions: { ...p.reactions, [kind]: Math.max(0, (p.reactions[kind] ?? 0) + (on ? 1 : -1)) },
+      myReactions: on ? [...p.myReactions, kind] : p.myReactions.filter(k => k !== kind),
+    } : p)));
+    const r = await api(`/api/photos/${id}/reactions`, 'POST', { kind, on });
+    if (r.ok) setPhotos(ps => ps.map(p => (p.id === id ? { ...p, reactions: r.data.reactions, myReactions: r.data.myReactions } : p)));
+    else toast('No pudimos guardar la reacción.');
+  }, [toast]);
+
+  const setCommentsCount = useCallback((id: string, n: number) => {
+    setPhotos(ps => ps.map(p => (p.id === id && p.comments !== n ? { ...p, comments: n } : p)));
+  }, []);
+
 
   const removePhoto = useCallback(async (id: string) => {
     if (id.startsWith('local-')) {
@@ -454,6 +474,8 @@ export function AlbumView({ album, me }: { album: AlbumDTO; me: Me }) {
           onFav={me ? toggleFav : undefined}
           onRotate={canUpload ? rotate : undefined}
           onSaveData={canUpload ? saveData : undefined}
+          onReact={me && !isPublic ? react : undefined}
+          onCommentsCount={setCommentsCount}
           sourceFor={sourceFor}
           onIndex={i => mode === 'carrusel' && carousel.current?.goTo(i)}
           onNote={saveNote}

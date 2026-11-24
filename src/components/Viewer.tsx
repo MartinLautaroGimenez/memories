@@ -7,6 +7,8 @@ import { IconBack, IconClose, IconDownload, IconFlip, IconHeart, IconMore, IconN
 import { cardRatio, clamp, EASE, reducedMotion, tiltRelease, tiltTo } from './motion';
 import { aspect, mediaUrl, PhotoImage, type LocalPhoto } from './Print';
 import { trap } from './Sheet';
+import { CommentsButton, CommentsPanel, Reactions } from './Social';
+import type { ReactionKind } from '@/lib/types';
 
 export type PhotoEdit = { takenAt?: string; place?: string | null; camera?: string | null; resetDate?: true };
 
@@ -25,6 +27,9 @@ type Props = {
   onFav?: (id: string, on: boolean) => void;
   onRotate?: (id: string, deg: 90 | -90) => void;
   onSaveData?: (id: string, data: PhotoEdit) => Promise<boolean>;
+  /** Reacciones y comentarios (solo para miembros del álbum). */
+  onReact?: (id: string, kind: ReactionKind, on: boolean) => void;
+  onCommentsCount?: (id: string, n: number) => void;
   sourceFor: (id: string) => HTMLElement | null;
   onIndex?: (i: number) => void;
   onNote: (id: string, note: string) => void;
@@ -43,6 +48,7 @@ export function Viewer(props: Props) {
   });
   const [flipped, setFlipped] = useState(false);
   const [menu, setMenu] = useState<'closed' | 'open' | 'confirm'>('closed');
+  const [talk, setTalk] = useState(false);
   const [box, setBox] = useState({ w: 0, h: 0 });
   const [hiRes, setHiRes] = useState<{ id: string; url: string } | null>(null);
 
@@ -193,7 +199,8 @@ export function Viewer(props: Props) {
       const typing = (e.target as Element)?.closest?.('textarea');
       if (e.key === 'Escape') {
         e.preventDefault();
-        if (menu !== 'closed') setMenu('closed');
+        if (talk) setTalk(false);
+        else if (menu !== 'closed') setMenu('closed');
         else if (typing) (e.target as HTMLElement).blur();
         else close();
       } else if (e.key === 'Tab' && root.current) trap(e, root.current);
@@ -204,7 +211,7 @@ export function Viewer(props: Props) {
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [nav, close, menu]);
+  }, [nav, close, menu, talk]);
 
   /* Deslizar para cambiar de foto; inclinar con el mouse */
   useEffect(() => {
@@ -369,17 +376,28 @@ export function Viewer(props: Props) {
       </div>
 
       <div className="v-bottom">
-        <button className="icon-btn" type="button" aria-label="Foto anterior" onClick={() => nav(-1)} disabled={photos.length < 2}>
-          <IconBack />
-        </button>
-        <button className="btn ghost v-flip" type="button" aria-pressed={flipped} onClick={() => setFlipped(f => !f)}>
-          <IconFlip />
-          {flipped ? 'Ver foto' : 'Dar vuelta'}
-        </button>
-        <button className="icon-btn" type="button" aria-label="Foto siguiente" onClick={() => nav(1)} disabled={photos.length < 2}>
-          <IconNext />
-        </button>
+        {props.onReact && (
+          <div className="v-social">
+            <Reactions p={p} onReact={(kind, on) => props.onReact!(p.id, kind, on)} />
+            <CommentsButton n={p.comments} open={talk} onClick={() => setTalk(t => !t)} />
+          </div>
+        )}
+        <div className="v-nav">
+          <button className="icon-btn" type="button" aria-label="Foto anterior" onClick={() => nav(-1)} disabled={photos.length < 2}>
+            <IconBack />
+          </button>
+          <button className="btn ghost v-flip" type="button" aria-pressed={flipped} onClick={() => setFlipped(f => !f)}>
+            <IconFlip />
+            {flipped ? 'Ver foto' : 'Dar vuelta'}
+          </button>
+          <button className="icon-btn" type="button" aria-label="Foto siguiente" onClick={() => nav(1)} disabled={photos.length < 2}>
+            <IconNext />
+          </button>
+        </div>
       </div>
+      {talk && props.onReact && (
+        <CommentsPanel key={p.id} photoId={p.id} onCount={n => props.onCommentsCount?.(p.id, n)} onClose={() => setTalk(false)} />
+      )}
     </div>
   );
 }

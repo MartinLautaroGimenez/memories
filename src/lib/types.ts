@@ -32,6 +32,23 @@ export type PhotoDTO = {
   fav: boolean;
   lat: number | null;
   lng: number | null;
+  /** Cantidad de comentarios. */
+  comments: number;
+  /** Reacciones por tipo y las de quien mira. */
+  reactions: Partial<Record<ReactionKind, number>>;
+  myReactions: ReactionKind[];
+};
+
+export const REACTIONS = ['heart', 'laugh', 'wow'] as const;
+export type ReactionKind = (typeof REACTIONS)[number];
+
+export type CommentDTO = {
+  id: string;
+  body: string;
+  createdAt: string;
+  author: { name: string; color: string; guest: boolean };
+  mine: boolean;
+  canDelete: boolean;
 };
 
 export type PersonDTO = { id: string; name: string; color: string; role: Role };

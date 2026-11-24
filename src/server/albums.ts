@@ -9,7 +9,13 @@ import { getSettings } from './settings';
 
 type PhotoRow = typeof photo.$inferSelect;
 
-export function toPhotoDTO(p: PhotoRow, uploader?: { id: string; name: string } | null, extra: { fav?: boolean; gps?: boolean } = {}): PhotoDTO {
+type Social = { comments?: number; reactions?: PhotoDTO['reactions']; mine?: PhotoDTO['myReactions'] };
+
+export function toPhotoDTO(
+  p: PhotoRow,
+  uploader?: { id: string; name: string } | null,
+  extra: { fav?: boolean; gps?: boolean; social?: Social } = {},
+): PhotoDTO {
   return {
     id: p.id,
     status: p.status,
@@ -30,7 +36,32 @@ export function toPhotoDTO(p: PhotoRow, uploader?: { id: string; name: string } 
     fav: extra.fav ?? false,
     lat: extra.gps === false ? null : p.lat,
     lng: extra.gps === false ? null : p.lng,
+    comments: extra.social?.comments ?? 0,
+    reactions: extra.social?.reactions ?? {},
+    myReactions: extra.social?.mine ?? [],
   };
+}
+
+/** Comentarios y reacciones de todas las fotos de un álbum. */
+export async function socialFor(albumId: string, userId: string | null | undefined): Promise<Map<string, Social>> {
+  const map = new Map<string, Social>();
+  const get = (id: string) => map.get(id) ?? (map.set(id, { comments: 0, reactions: {}, mine: [] }), map.get(id)!);
+  const comments = await db.execute<{ photo_id: string; n: number }>(sql`
+    select c.photo_id, count(*)::int as n from comment c join photo p on p.id = c.photo_id
+    where p.album_id = ${albumId} group by c.photo_id
+  `);
+  for (const r of comments.rows) get(r.photo_id).comments = r.n;
+  const reactions = await db.execute<{ photo_id: string; kind: string; n: number; mine: boolean }>(sql`
+    select r.photo_id, r.kind, count(*)::int as n, bool_or(r.user_id = ${userId ?? ''}) as mine
+    from reaction r join photo p on p.id = r.photo_id
+    where p.album_id = ${albumId} group by r.photo_id, r.kind
+  `);
+  for (const r of reactions.rows) {
+    const s = get(r.photo_id);
+    (s.reactions as Record<string, number>)[r.kind] = r.n;
+    if (r.mine) s.mine!.push(r.kind as PhotoDTO['myReactions'][number]);
+  }
+  return map;
 }
 
 async function peopleFor(albumIds: string[]): Promise<Map<string, PersonDTO[]>> {
@@ -169,8 +200,13 @@ export async function loadAlbum(
     .orderBy(...order);
   const settings = await getSettings();
   const maps = settings.maps && a.showMap;
+  const social = role === 'public' ? new Map<string, Social>() : await socialFor(a.id, opts.userId);
   const photos = rows.map(r =>
-    toPhotoDTO(r.p, r.uploaderId ? { id: r.uploaderId, name: r.uploaderName! } : null, { fav: !!r.fav, gps: maps || role !== 'public' }),
+    toPhotoDTO(r.p, r.uploaderId ? { id: r.uploaderId, name: r.uploaderName! } : null, {
+      fav: !!r.fav,
+      gps: maps || role !== 'public',
+      social: social.get(r.p.id),
+    }),
   );
   const dates = rows.filter(r => r.p.status === 'ready' && r.p.takenAt).map(r => +r.p.takenAt!);
   const withGps = rows.find(r => r.p.lat !== null && r.p.lng !== null);

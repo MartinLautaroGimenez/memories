@@ -8,6 +8,7 @@ import { env } from '@/server/env';
 import { fail, json, sessionUser, type Ctx } from '@/server/http';
 import { newId } from '@/server/ids';
 import { isHeic } from '@/server/photos/render';
+import { notifyUpload } from '@/server/notify';
 import { enqueue } from '@/server/photos/queue';
 import { originalKey, saveStream, TooLargeError } from '@/server/storage';
 
@@ -78,6 +79,7 @@ export async function POST(req: Request, { params }: Ctx<{ id: string }>) {
     })
     .returning();
   enqueue(id);
+  notifyUpload(albumId, { userId: u.id });
   return json({ photo: toPhotoDTO(row, { id: u.id, name: u.name }) }, 201);
 }
 

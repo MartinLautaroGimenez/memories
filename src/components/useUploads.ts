@@ -112,7 +112,7 @@ export function useUploads(opts: {
       return {
         id: localId, status: 'processing', w: null, h: null, color: null, thumbhash: null, takenAt: null, note: '',
         camera: null, exposure: null, file: f.name, by: me.current, error: null, local: { url },
-        place: null, exifTakenAt: null, guestName: guest.current, fav: false, lat: null, lng: null,
+        place: null, exifTakenAt: null, guestName: guest.current, fav: false, lat: null, lng: null, comments: 0, reactions: {}, myReactions: [],
       };
     });
     batch.current.total += ok.length;
