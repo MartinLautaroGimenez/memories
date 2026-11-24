@@ -5,6 +5,8 @@ import type { ShareSettingsDTO } from '@/lib/types';
 import { db } from './db';
 import { albumMember, invite, shareLink, type MemberRole } from './db/schema';
 import { env } from './env';
+import { mailEnabled } from './mail';
+import { getSettings } from './settings';
 import { newId, newToken } from './ids';
 
 const INVITE_DAYS = 14;
@@ -35,8 +37,10 @@ async function currentInvite(albumId: string) {
 export async function getShareSettings(albumId: string): Promise<ShareSettingsDTO> {
   const [l, i] = await Promise.all([currentLink(albumId), currentInvite(albumId)]);
   return {
-    link: l ? { url: linkUrl(l.token), hasPassword: !!l.passwordHash, allowDownload: l.allowDownload } : null,
+    link: l ? { url: linkUrl(l.token), hasPassword: !!l.passwordHash, allowDownload: l.allowDownload, allowUpload: l.allowUpload } : null,
     invite: i ? { url: inviteUrl(i.token), expiresAt: i.expiresAt.toISOString() } : null,
+    mail: await mailEnabled(),
+    guestUploads: (await getSettings()).guestUploads,
   };
 }
 
@@ -47,7 +51,7 @@ export async function getShareSettings(albumId: string): Promise<ShareSettingsDT
 export async function updateLink(
   albumId: string,
   userId: string,
-  opts: { enabled: boolean; password?: string | null; allowDownload?: boolean },
+  opts: { enabled: boolean; password?: string | null; allowDownload?: boolean; allowUpload?: boolean },
 ) {
   const existing = await currentLink(albumId);
   if (!opts.enabled) {
@@ -58,7 +62,7 @@ export async function updateLink(
   if (existing) {
     await db
       .update(shareLink)
-      .set({ passwordHash, allowDownload: opts.allowDownload ?? existing.allowDownload })
+      .set({ passwordHash, allowDownload: opts.allowDownload ?? existing.allowDownload, allowUpload: opts.allowUpload ?? existing.allowUpload })
       .where(eq(shareLink.id, existing.id));
   } else {
     await db.insert(shareLink).values({
@@ -67,6 +71,7 @@ export async function updateLink(
       token: newToken(),
       passwordHash,
       allowDownload: opts.allowDownload ?? true,
+      allowUpload: opts.allowUpload ?? false,
       createdBy: userId,
     });
   }

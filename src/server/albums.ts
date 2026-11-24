@@ -120,6 +120,12 @@ function rawPhoto(r: Record<string, unknown>): PhotoRow {
     status: r.status as PhotoRow['status'],
     attempts: (r.attempts as number) ?? 0,
     error: (r.error as string) ?? null,
+    place: (r.place as string) ?? null,
+    exifTakenAt: date(r.exif_taken_at),
+    rotation: (r.rotation as number) ?? 0,
+    sortIndex: (r.sort_index as number) ?? null,
+    guestName: (r.guest_name as string) ?? null,
+    facesScannedAt: date(r.faces_scanned_at),
     createdAt: date(r.created_at) as Date,
   };
 }

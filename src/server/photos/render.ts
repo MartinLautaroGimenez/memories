@@ -77,24 +77,31 @@ async function decodeHeic(buf: Buffer) {
 }
 
 /** Crea una fábrica de pipelines de sharp ya orientados correctamente. */
-async function source(buf: Buffer, mime: string, name: string) {
+async function source(buf: Buffer, mime: string, name: string, rotation: number) {
+  const turn = ((rotation % 360) + 360) % 360;
+  const quarter = turn === 90 || turn === 270;
   if (isHeic(mime, name)) {
     // sharp no trae HEVC por patentes: se decodifica con libheif (WASM) y ya viene rotada.
     const raw = await decodeHeic(buf);
-    return { make: () => sharp(raw.data, { raw: { width: raw.width, height: raw.height, channels: 4 } }), width: raw.width, height: raw.height };
+    return {
+      make: () => sharp(raw.data, { raw: { width: raw.width, height: raw.height, channels: 4 } }).rotate(turn),
+      width: quarter ? raw.height : raw.width,
+      height: quarter ? raw.width : raw.height,
+    };
   }
   const meta = await sharp(buf, { failOn: 'none' }).metadata();
   if (!meta.width || !meta.height) throw new Error('Imagen sin dimensiones');
   const swap = (meta.orientation ?? 1) >= 5;
   return {
-    make: () => sharp(buf, { failOn: 'none' }).rotate(),
-    width: swap ? meta.height : meta.width,
-    height: swap ? meta.width : meta.height,
+    make: () => (turn ? sharp(buf, { failOn: 'none' }).autoOrient().rotate(turn) : sharp(buf, { failOn: 'none' }).autoOrient()),
+    width: swap !== quarter ? meta.height : meta.width,
+    height: swap !== quarter ? meta.width : meta.height,
   };
 }
 
-export async function renderPhoto(buf: Buffer, mime: string, name: string, outDir: string): Promise<RenderResult> {
-  const [src, exif] = await Promise.all([source(buf, mime, name), readExif(buf)]);
+/** `rotation`: giro extra elegido a mano (0, 90, 180 o 270), además de la orientación del EXIF. */
+export async function renderPhoto(buf: Buffer, mime: string, name: string, outDir: string, rotation = 0): Promise<RenderResult> {
+  const [src, exif] = await Promise.all([source(buf, mime, name, rotation), readExif(buf)]);
   await mkdir(outDir, { recursive: true });
 
   const variants: Variants = {};

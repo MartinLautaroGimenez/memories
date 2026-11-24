@@ -1,12 +1,13 @@
 'use client';
 
+import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
 import { avatarColor } from '@/lib/people';
 import { Avatar } from './Avatars';
 import { LightSwitch } from './LightSwitch';
 import { Logo } from './Logo';
 
-type Me = { id: string; name: string; email: string };
+type Me = { id: string; name: string; email: string; role?: string };
 
 export function TopBar({ me, logout }: { me?: Me | null; logout?: () => Promise<void> }) {
   return (
@@ -42,6 +43,10 @@ function MeMenu({ me, logout }: { me: Me; logout: () => Promise<void> }) {
         <div className="menu" role="menu">
           <p className="who">{me.name}</p>
           <p className="mail">{me.email}</p>
+          <nav className="menu-links">
+            <Link href="/perfil" role="menuitem" onClick={() => setOpen(false)}>Tu perfil</Link>
+            {me.role === 'admin' && <Link href="/admin" role="menuitem" onClick={() => setOpen(false)}>Administración</Link>}
+          </nav>
           <form action={logout}>
             <button className="btn" type="submit" role="menuitem">
               Cerrar sesión

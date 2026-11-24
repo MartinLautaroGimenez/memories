@@ -50,7 +50,7 @@ export function ShareSheet({ album, meId, onClose }: { album: { id: string; titl
     run(
       () => call(`${base}/share`, 'POST', { link: { enabled } }),
       enabled ? 'Link público activado' : 'Link público desactivado',
-      cur => ({ ...cur, link: enabled ? { url: '', hasPassword: false, allowDownload: true } : null }),
+      cur => ({ ...cur, link: enabled ? { url: '', hasPassword: false, allowDownload: true, allowUpload: false } : null }),
     );
 
   async function copy(text: string, inputId: string) {
@@ -125,6 +125,22 @@ export function ShareSheet({ album, meId, onClose }: { album: { id: string; titl
         <button className="btn" type="button" disabled={!s} onClick={() => run(() => call(`${base}/share`, 'POST', { invite: {} }), 'Link de invitación creado')}>
           Crear link de invitación
         </button>
+      )}
+
+      {s?.mail && (
+        <form
+          className="linkrow"
+          style={{ marginTop: 12 }}
+          onSubmit={e => {
+            e.preventDefault();
+            const form = e.currentTarget;
+            const email = String(new FormData(form).get('email') ?? '').trim();
+            run(() => call(`${base}/share`, 'POST', { inviteEmail: email }), `Invitación mandada a ${email}`).then(ok => ok && form.reset());
+          }}
+        >
+          <input className="input" name="email" type="email" required placeholder="email@ejemplo.com" aria-label="Email de la persona a invitar" autoComplete="off" />
+          <button className="btn" type="submit">Invitar por mail</button>
+        </form>
       )}
 
       <h3>Link para ver</h3>

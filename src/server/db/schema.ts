@@ -8,6 +8,7 @@ import {
   pgEnum,
   pgTable,
   primaryKey,
+  real,
   text,
   timestamp,
 } from 'drizzle-orm/pg-core';
@@ -24,6 +25,8 @@ export const user = pgTable('user', {
   image: text('image'),
   /** 'admin' administra la instancia; 'member' es cualquier otra persona. */
   role: text('role').notNull().default('member'),
+  /** Recibir avisos por mail (fotos nuevas, comentarios). */
+  emailNotifications: boolean('email_notifications').notNull().default(true),
   createdAt: ts('created_at').notNull().defaultNow(),
   updatedAt: ts('updated_at').notNull().defaultNow(),
 });
@@ -89,6 +92,12 @@ export const album = pgTable('album', {
   lat: doublePrecision('lat'),
   lng: doublePrecision('lng'),
   coverPhotoId: text('cover_photo_id'),
+  /** 'date' ordena por fecha (y agrupa por días); 'manual' respeta photo.sortIndex. */
+  sortMode: text('sort_mode').notNull().default('date'),
+  /** Si se muestra el mapa del álbum (además del interruptor global). */
+  showMap: boolean('show_map').notNull().default(true),
+  /** Títulos escritos a mano para cada día: { "2026-06-15": "Seljalandsfoss" } */
+  dayNotes: jsonb('day_notes').$type<Record<string, string>>(),
   createdBy: text('created_by').references(() => user.id, { onDelete: 'set null' }),
   createdAt: ts('created_at').notNull().defaultNow(),
   updatedAt: ts('updated_at').notNull().defaultNow(),
@@ -150,6 +159,17 @@ export const photo = pgTable(
     status: photoStatus('status').notNull().default('processing'),
     attempts: integer('attempts').notNull().default(0),
     error: text('error'),
+    /** Lugar escrito para esta foto (si no, se usa el del álbum). */
+    place: text('place'),
+    /** Fecha original del EXIF, para poder deshacer correcciones. */
+    exifTakenAt: ts('exif_taken_at'),
+    /** Giro extra elegido a mano: 0, 90, 180 o 270. */
+    rotation: integer('rotation').notNull().default(0),
+    /** Posición en el orden manual del álbum. */
+    sortIndex: doublePrecision('sort_index'),
+    /** Nombre de quien subió la foto sin cuenta, desde un link de invitados. */
+    guestName: text('guest_name'),
+    facesScannedAt: ts('faces_scanned_at'),
     createdAt: ts('created_at').notNull().defaultNow(),
   },
   t => [
@@ -170,6 +190,8 @@ export const shareLink = pgTable(
     token: text('token').notNull().unique(),
     passwordHash: text('password_hash'),
     allowDownload: boolean('allow_download').notNull().default(true),
+    /** Quien tiene el link puede subir fotos sin cuenta (bodas, cumpleaños). */
+    allowUpload: boolean('allow_upload').notNull().default(false),
     expiresAt: ts('expires_at'),
     createdBy: text('created_by').references(() => user.id, { onDelete: 'set null' }),
     createdAt: ts('created_at').notNull().defaultNow(),
@@ -194,4 +216,94 @@ export const invite = pgTable(
     revokedAt: ts('revoked_at'),
   },
   t => [index('invite_album_idx').on(t.albumId)],
+);
+
+/* ---------- Ajustes de la instalación ---------- */
+
+export const setting = pgTable('setting', {
+  key: text('key').primaryKey(),
+  value: jsonb('value').notNull(),
+  updatedAt: ts('updated_at').notNull().defaultNow(),
+});
+
+/* ---------- Favoritas, comentarios y reacciones ---------- */
+
+export const favorite = pgTable(
+  'favorite',
+  {
+    photoId: text('photo_id')
+      .notNull()
+      .references(() => photo.id, { onDelete: 'cascade' }),
+    userId: text('user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    createdAt: ts('created_at').notNull().defaultNow(),
+  },
+  t => [primaryKey({ columns: [t.photoId, t.userId] }), index('favorite_user_idx').on(t.userId)],
+);
+
+export const comment = pgTable(
+  'comment',
+  {
+    id: text('id').primaryKey(),
+    photoId: text('photo_id')
+      .notNull()
+      .references(() => photo.id, { onDelete: 'cascade' }),
+    userId: text('user_id').references(() => user.id, { onDelete: 'set null' }),
+    guestName: text('guest_name'),
+    body: text('body').notNull(),
+    createdAt: ts('created_at').notNull().defaultNow(),
+  },
+  t => [index('comment_photo_idx').on(t.photoId, t.createdAt)],
+);
+
+export const reaction = pgTable(
+  'reaction',
+  {
+    photoId: text('photo_id')
+      .notNull()
+      .references(() => photo.id, { onDelete: 'cascade' }),
+    userId: text('user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    /** heart | laugh | wow */
+    kind: text('kind').notNull(),
+    createdAt: ts('created_at').notNull().defaultNow(),
+  },
+  t => [primaryKey({ columns: [t.photoId, t.userId, t.kind] })],
+);
+
+/* ---------- Personas y caras ---------- */
+
+export const person = pgTable('person', {
+  id: text('id').primaryKey(),
+  name: text('name').notNull(),
+  /** Cara que se usa como retrato. */
+  coverFaceId: text('cover_face_id'),
+  createdBy: text('created_by').references(() => user.id, { onDelete: 'set null' }),
+  createdAt: ts('created_at').notNull().defaultNow(),
+});
+
+export type FaceBox = { x: number; y: number; w: number; h: number };
+
+export const face = pgTable(
+  'face',
+  {
+    id: text('id').primaryKey(),
+    photoId: text('photo_id')
+      .notNull()
+      .references(() => photo.id, { onDelete: 'cascade' }),
+    personId: text('person_id').references(() => person.id, { onDelete: 'set null' }),
+    /** Recuadro normalizado (0 a 1) sobre la foto ya orientada. Null en etiquetas manuales sin recuadro. */
+    box: jsonb('box').$type<FaceBox>(),
+    /** Huella de 128 números (SFace), normalizada. */
+    embedding: real('embedding').array(),
+    score: real('score'),
+    /** 'auto' (detectada), 'manual' (etiqueta a mano) */
+    source: text('source').notNull().default('auto'),
+    /** La persona fue confirmada a mano (no es solo una sugerencia). */
+    confirmed: boolean('confirmed').notNull().default(false),
+    createdAt: ts('created_at').notNull().defaultNow(),
+  },
+  t => [index('face_photo_idx').on(t.photoId), index('face_person_idx').on(t.personId)],
 );

@@ -57,6 +57,10 @@ export type AlbumDTO = {
 };
 
 export type ShareSettingsDTO = {
-  link: { url: string; hasPassword: boolean; allowDownload: boolean } | null;
+  link: { url: string; hasPassword: boolean; allowDownload: boolean; allowUpload: boolean } | null;
   invite: { url: string; expiresAt: string } | null;
+  /** Hay correo configurado (se puede invitar por mail). */
+  mail: boolean;
+  /** La instalación permite subidas de invitados. */
+  guestUploads: boolean;
 };

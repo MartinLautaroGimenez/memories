@@ -22,6 +22,12 @@ export async function requireUser(next?: string): Promise<CurrentUser> {
   redirect(next ? `/login?next=${encodeURIComponent(next)}` : '/login');
 }
 
+export async function requireAdmin(): Promise<CurrentUser> {
+  const u = await requireUser('/admin');
+  if (u.role !== 'admin') redirect('/');
+  return u;
+}
+
 export const hasUsers = cache(async (): Promise<boolean> => {
   const r = await db.execute<{ any: boolean }>(sql`select exists(select 1 from "user") as any`);
   return Boolean(r.rows[0]?.any);

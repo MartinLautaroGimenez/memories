@@ -122,3 +122,34 @@ export async function unlockShareAction(token: string, _: FormState, fd: FormDat
   await unlockLink(link);
   redirect(`/s/${token}`);
 }
+
+/* ---------- Recuperar contraseña ---------- */
+
+export async function requestResetAction(_: FormState, fd: FormData): Promise<FormState> {
+  const { mailEnabled } = await import('@/server/mail');
+  const { env } = await import('@/server/env');
+  const email = String(fd.get('email') ?? '').trim().toLowerCase();
+  if (!z.email().safeParse(email).success) return { error: 'Ese email no parece válido.', values: { email } };
+  if (!(await mailEnabled())) {
+    return { error: 'Esta instalación todavía no tiene correo configurado. Pedile a quien la administra que te genere una contraseña nueva.', values: { email } };
+  }
+  try {
+    await auth.api.requestPasswordReset({ body: { email, redirectTo: `${env.APP_URL}/restablecer` }, headers: await headers() });
+  } catch (err) {
+    console.error('[memories] no se pudo pedir el cambio de contraseña', err);
+  }
+  // Mismo mensaje exista o no la cuenta, para no revelar quién usa Memories.
+  return { values: { sent: '1', email } };
+}
+
+export async function resetPasswordAction(token: string, _: FormState, fd: FormData): Promise<FormState> {
+  const newPassword = String(fd.get('password') ?? '');
+  if (newPassword.length < 8) return { error: 'La contraseña tiene que tener al menos 8 caracteres.' };
+  if (newPassword !== String(fd.get('repeat') ?? '')) return { error: 'Las dos contraseñas no coinciden.' };
+  try {
+    await auth.api.resetPassword({ body: { newPassword, token }, headers: await headers() });
+  } catch {
+    return { error: 'El link venció o ya se usó. Pedí uno nuevo desde "¿Olvidaste tu contraseña?".' };
+  }
+  redirect('/login?restablecida=1');
+}

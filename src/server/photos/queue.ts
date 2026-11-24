@@ -46,16 +46,19 @@ export async function processPhoto(id: string) {
   await db.update(photo).set({ attempts }).where(eq(photo.id, id));
   try {
     const buf = await readBuffer(p.originalKey);
-    const r = await renderPhoto(buf, p.mime, p.originalName, storagePath(`variants/${id}`));
+    const r = await renderPhoto(buf, p.mime, p.originalName, storagePath(`variants/${id}`), p.rotation);
+    // La primera vez se toma la fecha del EXIF; después se respetan las correcciones hechas a mano.
+    const firstTime = !p.exifTakenAt && !p.width;
     await db
       .update(photo)
       .set({
         width: r.width,
         height: r.height,
-        takenAt: r.takenAt ?? p.takenAt,
-        lat: r.lat,
-        lng: r.lng,
-        camera: r.camera,
+        takenAt: firstTime ? (r.takenAt ?? p.takenAt) : p.takenAt,
+        exifTakenAt: p.exifTakenAt ?? r.takenAt ?? p.takenAt,
+        lat: firstTime ? r.lat : p.lat,
+        lng: firstTime ? r.lng : p.lng,
+        camera: firstTime ? r.camera : p.camera,
         exposure: r.exposure,
         color: r.color,
         thumbhash: r.thumbhash,
