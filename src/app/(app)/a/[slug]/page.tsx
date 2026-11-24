@@ -20,6 +20,6 @@ export default async function AlbumPage({ params }: P) {
   if (!a) notFound();
   const role = await albumRole(a.id, me.id);
   if (!role) notFound();
-  const album = await loadAlbum(a, role, { includePending: true });
+  const album = await loadAlbum(a, role, { includePending: true, userId: me.id });
   return <AlbumView album={album} me={{ id: me.id, name: me.name }} />;
 }

@@ -20,8 +20,15 @@ export function useUploads(opts: {
   setPhotos: React.Dispatch<React.SetStateAction<LocalPhoto[]>>;
   initialPending: string[];
   toast: (m: string) => void;
+  /** Para subidas de invitados: a dónde se sube y con qué nombre. */
+  uploadUrl?: string;
+  guestName?: string | null;
+  statusUrl?: string;
 }) {
   const { albumId, setPhotos, toast } = opts;
+  const uploadUrl = opts.uploadUrl ?? `/api/albums/${albumId}/photos`;
+  const statusUrl = opts.statusUrl ?? `/api/albums/${albumId}/photos`;
+  const guestName = opts.guestName ?? null;
   const queue = useRef<Item[]>([]);
   const active = useRef(0);
   const pending = useRef(new Set<string>(opts.initialPending));
@@ -29,7 +36,9 @@ export function useUploads(opts: {
   const batch = useRef({ ready: 0, failed: 0, total: 0 });
   const seq = useRef(0);
   const me = useRef(opts.me);
+  const guest = useRef(opts.guestName ?? null);
   const pumpRef = useRef<() => void>(() => {});
+  const silent = useRef(new Set<string>());
 
   const patch = useCallback((id: string, next: (p: LocalPhoto) => LocalPhoto) => {
     setPhotos(ps => ps.map(p => (p.id === id ? next(p) : p)));
@@ -47,13 +56,14 @@ export function useUploads(opts: {
     const { file, localId } = item;
     let res: Response | null = null;
     try {
-      res = await fetch(`/api/albums/${albumId}/photos`, {
+      res = await fetch(uploadUrl, {
         method: 'POST',
         body: file,
         headers: {
           'content-type': file.type || 'application/octet-stream',
           'x-file-name': encodeURIComponent(file.name),
           'x-last-modified': String(file.lastModified || Date.now()),
+          ...(guestName ? { 'x-guest-name': encodeURIComponent(guestName) } : {}),
         },
       });
     } catch {
@@ -69,7 +79,7 @@ export function useUploads(opts: {
       const msg = data?.error ?? `No pudimos subir ${file.name}. Revisá tu conexión y probá de nuevo.`;
       patch(localId, p => ({ ...p, status: 'failed', error: msg }));
     }
-  }, [albumId, patch, setPhotos]);
+  }, [uploadUrl, guestName, patch, setPhotos]);
 
   const pump = useCallback(() => {
     while (active.current < PARALLEL && queue.current.length) {
@@ -102,6 +112,7 @@ export function useUploads(opts: {
       return {
         id: localId, status: 'processing', w: null, h: null, color: null, thumbhash: null, takenAt: null, note: '',
         camera: null, exposure: null, file: f.name, by: me.current, error: null, local: { url },
+        place: null, exifTakenAt: null, guestName: guest.current, fav: false, lat: null, lng: null,
       };
     });
     batch.current.total += ok.length;
@@ -114,13 +125,14 @@ export function useUploads(opts: {
     const t = setInterval(async () => {
       if (!pending.current.size) return;
       const ids = [...pending.current].slice(0, 100);
-      const res = await fetch(`/api/albums/${albumId}/photos?ids=${ids.join(',')}`).catch(() => null);
+      const res = await fetch(`${statusUrl}${statusUrl.includes('?') ? '&' : '?'}ids=${ids.join(',')}`).catch(() => null);
       const data = await res?.json().catch(() => null);
       if (!data?.photos) return;
       const done = (data.photos as PhotoDTO[]).filter(p => p.status !== 'processing');
       if (!done.length) return;
       for (const d of done) {
         pending.current.delete(d.id);
+        if (silent.current.delete(d.id)) continue;
         if (d.status === 'ready') batch.current.ready++;
         else batch.current.failed++;
       }
@@ -129,9 +141,15 @@ export function useUploads(opts: {
       finishBatch();
     }, 1500);
     return () => clearInterval(t);
-  }, [albumId, setPhotos, finishBatch]);
+  }, [statusUrl, setPhotos, finishBatch]);
 
   useEffect(() => () => urls.current.forEach(u => URL.revokeObjectURL(u)), []);
 
-  return { add };
+  /** Sigue una foto que se vuelve a revelar (por ejemplo, después de girarla), sin avisos. */
+  const watch = useCallback((id: string) => {
+    silent.current.add(id);
+    pending.current.add(id);
+  }, []);
+
+  return { add, watch };
 }

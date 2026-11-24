@@ -10,3 +10,5 @@ export const IconPlus = () => (<svg {...base}><path d="M12 5v14M5 12h14" /></svg
 export const IconMore = () => (<svg {...base}><circle cx="5" cy="12" r="1.2" fill="currentColor" /><circle cx="12" cy="12" r="1.2" fill="currentColor" /><circle cx="19" cy="12" r="1.2" fill="currentColor" /></svg>);
 export const IconDownload = () => (<svg {...base}><path d="M12 4v11m0 0l-4.5-4.5M12 15l4.5-4.5" /><path d="M4 14v4.5A1.5 1.5 0 0 0 5.5 20h13a1.5 1.5 0 0 0 1.5-1.5V14" /></svg>);
 export const IconPencil = () => (<svg {...base}><path d="M14.5 5.5l4 4M4 20l4.5-1 10-10-3.5-3.5-10 10z" /></svg>);
+export const IconHeart = ({ filled }: { filled?: boolean }) => (<svg {...base} fill={filled ? 'currentColor' : 'none'}><path d="M12 20s-7.5-4.6-7.5-10.1A4.4 4.4 0 0 1 12 7.1a4.4 4.4 0 0 1 7.5 2.8C19.5 15.4 12 20 12 20z" /></svg>);
+export const IconCheck = () => (<svg {...base}><path d="M5 12.5l4.5 4.5L19 7.5" /></svg>);

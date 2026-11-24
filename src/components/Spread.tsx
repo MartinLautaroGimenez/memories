@@ -1,6 +1,6 @@
 'use client';
 
-import { forwardRef, useEffect, useImperativeHandle, useLayoutEffect, useRef } from 'react';
+import { forwardRef, Fragment, useEffect, useImperativeHandle, useLayoutEffect, useRef } from 'react';
 import { fmtDate } from '@/lib/format';
 import { takeFlip } from './handoff';
 import { clamp, dealIn, EASE, reducedMotion, rng, tiltRelease, tiltTo } from './motion';
@@ -17,16 +17,27 @@ type Props = {
   onOpen: (id: string, el: HTMLElement) => void;
   onRemove: (p: LocalPhoto) => void;
   onMoved: () => void;
+  /** Modo selección: tocar una copia la elige en vez de abrirla. */
+  selecting?: boolean;
+  selected?: Set<string>;
+  onToggle?: (id: string) => void;
+  /** Encabezados de día, por id de la primera foto de ese día. */
+  heads?: Map<string, React.ReactNode>;
+  /** Mostrar la marca de favorita. */
+  showFav?: boolean;
 };
 
 /** Vista Mesa: copias sueltas, levemente rotadas, que se pueden arrastrar. */
-export const Spread = forwardRef<SpreadHandle, Props>(function Spread({ photos, shareToken, canRemove, onOpen, onRemove, onMoved }, ref) {
+export const Spread = forwardRef<SpreadHandle, Props>(function Spread(
+  { photos, shareToken, canRemove, onOpen, onRemove, onMoved, selecting = false, selected, onToggle, heads, showFav },
+  ref,
+) {
   const root = useRef<HTMLDivElement>(null);
   const pos = useRef(new Map<string, Pos>());
   const known = useRef(new Set<string>());
   const z = useRef(10);
-  const cb = useRef({ onOpen, onMoved });
-  cb.current = { onOpen, onMoved };
+  const cb = useRef({ onOpen, onMoved, onToggle, selecting });
+  useEffect(() => { cb.current = { onOpen, onMoved, onToggle, selecting }; });
 
   const apply = (el: HTMLElement, p: Pos) => {
     el.style.transform = `translate(${p.x.toFixed(1)}px,${p.y.toFixed(1)}px) rotate(${p.r.toFixed(2)}deg) scale(${p.s.toFixed(3)})`;
@@ -121,12 +132,20 @@ export const Spread = forwardRef<SpreadHandle, Props>(function Spread({ photos, 
     };
     const onKey = (e: KeyboardEvent) => {
       const p = (e.target as Element).closest<HTMLElement>('.print.ready');
-      if (p && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); cb.current.onOpen(p.dataset.id!, p); }
+      if (p && (e.key === 'Enter' || e.key === ' ')) {
+        e.preventDefault();
+        if (cb.current.selecting) cb.current.onToggle?.(p.dataset.id!);
+        else cb.current.onOpen(p.dataset.id!, p);
+      }
     };
 
     const onDown = (e: PointerEvent) => {
       const p = (e.target as Element).closest<HTMLElement>('.print[data-id]');
       if (!p || e.button > 0 || (e.target as Element).closest('button')) return;
+      if (cb.current.selecting) {
+        if (p.classList.contains('ready')) cb.current.onToggle?.(p.dataset.id!);
+        return;
+      }
       const st = pos.current.get(p.dataset.id!);
       if (!st) return;
       const touch = e.pointerType !== 'mouse';
@@ -216,24 +235,31 @@ export const Spread = forwardRef<SpreadHandle, Props>(function Spread({ photos, 
   }, []);
 
   return (
-    <div className="spread" ref={root}>
+    <div className={`spread${selecting ? ' selecting' : ''}`} ref={root}>
       {photos.map(p => {
+        const head = heads?.get(p.id);
+        const isSel = !!selected?.has(p.id);
         const r = rng(`${p.id}`);
         const pw = [100, 94, 86][Math.floor(r() * 3)];
         const pm = ((100 - pw) * r()).toFixed(1);
         const state = p.status === 'ready' ? 'ready' : p.status === 'failed' ? 'failed' : 'pending';
         const label = p.status === 'ready' ? `${p.note || 'Foto sin nota'}${p.takenAt ? `, ${fmtDate(p.takenAt)}` : ''}` : p.status === 'failed' ? `${p.file}: no se pudo revelar` : `${p.file}: revelando`;
         return (
-          <div className="cell" key={p.id}>
+          <Fragment key={p.id}>
+          {head}
+          <div className="cell">
             <Print
               photo={p}
               shareToken={shareToken}
-              className={state}
-              role={state === 'ready' ? 'button' : undefined}
+              className={`${state}${isSel ? ' selected' : ''}`}
+              role={state === 'ready' ? (selecting ? 'checkbox' : 'button') : undefined}
+              aria-checked={selecting && state === 'ready' ? isSel : undefined}
               tabIndex={state === 'ready' ? 0 : -1}
               aria-label={label}
               style={{ ['--pw' as string]: `${pw}%`, ['--pm' as string]: `${pm}%` }}
             >
+              {showFav && p.fav && <span className="fav-mark" aria-hidden="true" />}
+              {selecting && state === 'ready' && <span className="sel-mark" aria-hidden="true" />}
               {p.status === 'failed' && (
                 <>
                   <p className="print-note">{p.error ?? `No pudimos leer ${p.file}.`}</p>
@@ -246,6 +272,7 @@ export const Spread = forwardRef<SpreadHandle, Props>(function Spread({ photos, 
               )}
             </Print>
           </div>
+          </Fragment>
         );
       })}
     </div>

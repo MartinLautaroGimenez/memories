@@ -79,8 +79,8 @@ importers:
         specifier: 1.63.0
         version: 1.63.0
       '@types/archiver':
-        specifier: ^8.0.0
-        version: 8.0.0
+        specifier: ^6.0.3
+        version: 6.0.3
       '@types/d3-geo':
         specifier: ^3.1.1
         version: 3.1.1
@@ -1189,8 +1189,8 @@ packages:
   '@tybys/wasm-util@0.10.5':
     resolution: {integrity: sha512-dOGOPxlaNV+G046mZzN+9C0dAcQZeSKcXiVaM0TYy/LM4ttTmgSBDxYfovcYI8Em3+eAbiAYpvWLOv8+ZVRJKA==}
 
-  '@types/archiver@8.0.0':
-    resolution: {integrity: sha512-YpXPbEuv9+eUIPPQWUPahj3cvs9isWRuF+J4z+KbdYVDO3rWorWQFxUVHnwPu2AgKwvgpki5F2VMX0Xx+mX45A==}
+  '@types/archiver@6.0.3':
+    resolution: {integrity: sha512-a6wUll6k3zX6qs5KlxIggs1P1JcYJaTCx2gnlr+f0S1yd2DoaEwoIK10HmBaLnZwWneBz+JBm0dwcZu0zECBcQ==}
 
   '@types/chai@5.2.3':
     resolution: {integrity: sha512-Mw558oeA9fFbv65/y4mHtXDs9bPnFMZAL/jxdPFUpOHHIXX91mcgEHbS5Lahr+pwZFR8A7GQleRWeI6cGFC2UA==}
@@ -4270,9 +4270,8 @@ snapshots:
       tslib: 2.9.1
     optional: true
 
-  '@types/archiver@8.0.0':
+  '@types/archiver@6.0.3':
     dependencies:
-      '@types/node': 22.20.5
       '@types/readdir-glob': 1.1.5
 
   '@types/chai@5.2.3':

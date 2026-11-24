@@ -22,6 +22,16 @@ export type PhotoDTO = {
   file: string;
   by: { id: string; name: string } | null;
   error: string | null;
+  /** Lugar escrito para esta foto (si no, el del álbum). */
+  place: string | null;
+  /** Fecha original del EXIF, para mostrar o deshacer correcciones. */
+  exifTakenAt: string | null;
+  /** Nombre de quien la subió sin cuenta. */
+  guestName: string | null;
+  /** Favorita de quien mira. */
+  fav: boolean;
+  lat: number | null;
+  lng: number | null;
 };
 
 export type PersonDTO = { id: string; name: string; color: string; role: Role };
@@ -54,6 +64,16 @@ export type AlbumDTO = {
   /** Solo en vistas públicas: token para pedir las imágenes. */
   shareToken?: string;
   allowDownload?: boolean;
+  /** Solo en vistas públicas: los invitados pueden subir fotos. */
+  allowUpload?: boolean;
+  sortMode: 'date' | 'manual';
+  /** Títulos escritos para cada día: { "2026-06-15": "Seljalandsfoss" } */
+  dayNotes: Record<string, string>;
+  /** El álbum muestra su mapa (ajuste del álbum). */
+  showMap: boolean;
+  /** Los mapas están activados en la instalación. */
+  mapsEnabled: boolean;
+  facesEnabled: boolean;
 };
 
 export type ShareSettingsDTO = {

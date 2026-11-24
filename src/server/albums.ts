@@ -4,11 +4,12 @@ import { avatarColor } from '@/lib/people';
 import { fmtCoords } from '@/lib/format';
 import type { AlbumCardDTO, AlbumDTO, PersonDTO, PhotoDTO, Role } from '@/lib/types';
 import { db } from './db';
-import { album, albumMember, photo, user } from './db/schema';
+import { album, albumMember, favorite, photo, user } from './db/schema';
+import { getSettings } from './settings';
 
 type PhotoRow = typeof photo.$inferSelect;
 
-export function toPhotoDTO(p: PhotoRow, uploader?: { id: string; name: string } | null): PhotoDTO {
+export function toPhotoDTO(p: PhotoRow, uploader?: { id: string; name: string } | null, extra: { fav?: boolean; gps?: boolean } = {}): PhotoDTO {
   return {
     id: p.id,
     status: p.status,
@@ -23,6 +24,12 @@ export function toPhotoDTO(p: PhotoRow, uploader?: { id: string; name: string } 
     file: p.originalName,
     by: uploader ?? null,
     error: p.status === 'failed' ? p.error : null,
+    place: p.place,
+    exifTakenAt: p.exifTakenAt ? p.exifTakenAt.toISOString() : null,
+    guestName: p.guestName,
+    fav: extra.fav ?? false,
+    lat: extra.gps === false ? null : p.lat,
+    lng: extra.gps === false ? null : p.lng,
   };
 }
 
@@ -143,16 +150,29 @@ export async function findAlbumById(id: string): Promise<AlbumRow | null> {
 }
 
 /** El álbum completo, listo para la vista. `role` define qué puede hacer quien mira. */
-export async function loadAlbum(a: AlbumRow, role: Role | 'public', opts: { includePending?: boolean } = {}): Promise<AlbumDTO> {
+export async function loadAlbum(
+  a: AlbumRow,
+  role: Role | 'public',
+  opts: { includePending?: boolean; userId?: string | null } = {},
+): Promise<AlbumDTO> {
   const where = opts.includePending ? eq(photo.albumId, a.id) : and(eq(photo.albumId, a.id), eq(photo.status, 'ready'));
+  const order =
+    a.sortMode === 'manual'
+      ? [sql`${photo.sortIndex} asc nulls last`, sql`${photo.takenAt} asc nulls last`, asc(photo.createdAt)]
+      : [sql`${photo.takenAt} asc nulls last`, asc(photo.createdAt)];
   const rows = await db
-    .select({ p: photo, uploaderId: user.id, uploaderName: user.name })
+    .select({ p: photo, uploaderId: user.id, uploaderName: user.name, fav: favorite.userId })
     .from(photo)
     .leftJoin(user, eq(user.id, photo.uploadedBy))
+    .leftJoin(favorite, and(eq(favorite.photoId, photo.id), eq(favorite.userId, opts.userId ?? '')))
     .where(where)
-    .orderBy(sql`${photo.takenAt} asc nulls last`, asc(photo.createdAt));
-  const photos = rows.map(r => toPhotoDTO(r.p, r.uploaderId ? { id: r.uploaderId, name: r.uploaderName! } : null));
-  const ready = rows.filter(r => r.p.status === 'ready' && r.p.takenAt);
+    .orderBy(...order);
+  const settings = await getSettings();
+  const maps = settings.maps && a.showMap;
+  const photos = rows.map(r =>
+    toPhotoDTO(r.p, r.uploaderId ? { id: r.uploaderId, name: r.uploaderName! } : null, { fav: !!r.fav, gps: maps || role !== 'public' }),
+  );
+  const dates = rows.filter(r => r.p.status === 'ready' && r.p.takenAt).map(r => +r.p.takenAt!);
   const withGps = rows.find(r => r.p.lat !== null && r.p.lng !== null);
   const lat = a.lat ?? withGps?.p.lat ?? null;
   const lng = a.lng ?? withGps?.p.lng ?? null;
@@ -162,12 +182,39 @@ export async function loadAlbum(a: AlbumRow, role: Role | 'public', opts: { incl
     slug: a.slug,
     title: a.title,
     place: a.place,
-    coords: lat !== null && lng !== null ? fmtCoords(lat, lng) : null,
-    from: ready.length ? ready[0].p.takenAt!.toISOString() : null,
-    to: ready.length ? ready[ready.length - 1].p.takenAt!.toISOString() : null,
+    coords: lat !== null && lng !== null && (maps || role !== 'public') ? fmtCoords(lat, lng) : null,
+    from: dates.length ? new Date(Math.min(...dates)).toISOString() : null,
+    to: dates.length ? new Date(Math.max(...dates)).toISOString() : null,
     coverPhotoId: a.coverPhotoId,
     role,
     people: role === 'public' ? people.map(p => ({ ...p, id: '' })) : people,
     photos,
+    sortMode: a.sortMode === 'manual' ? 'manual' : 'date',
+    dayNotes: a.dayNotes ?? {},
+    showMap: a.showMap,
+    mapsEnabled: settings.maps,
+    facesEnabled: settings.faces,
   };
+}
+
+export type OnThisDay = { photo: PhotoDTO; album: { slug: string; title: string }; years: number };
+
+/** Una foto tomada estos días en años anteriores, de los álbumes de la persona (prefiere sus favoritas). */
+export async function onThisDay(userId: string, today = new Date()): Promise<OnThisDay | null> {
+  const r = await db.execute<Record<string, unknown> & { album_slug: string; album_title: string; years: number }>(sql`
+    select p.*, a.slug as album_slug, a.title as album_title,
+      (extract(year from ${today.toISOString()}::timestamptz) - extract(year from p.taken_at))::int as years
+    from photo p
+    join album a on a.id = p.album_id
+    join album_member m on m.album_id = a.id and m.user_id = ${userId}
+    left join favorite f on f.photo_id = p.id and f.user_id = ${userId}
+    where p.status = 'ready' and p.taken_at is not null
+      and extract(year from p.taken_at) < extract(year from ${today.toISOString()}::timestamptz)
+      and abs(extract(doy from p.taken_at) - extract(doy from ${today.toISOString()}::timestamptz)) <= 3
+    order by (f.user_id is not null) desc, random()
+    limit 1
+  `);
+  const row = r.rows[0];
+  if (!row) return null;
+  return { photo: toPhotoDTO(rawPhoto(row)), album: { slug: row.album_slug, title: row.album_title }, years: row.years };
 }

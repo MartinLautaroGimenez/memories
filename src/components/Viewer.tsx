@@ -3,10 +3,12 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { fmtDate, fmtExposure, fmtTime } from '@/lib/format';
 import { DateStamp } from './DateStamp';
-import { IconBack, IconClose, IconDownload, IconFlip, IconMore, IconNext } from './icons';
+import { IconBack, IconClose, IconDownload, IconFlip, IconHeart, IconMore, IconNext } from './icons';
 import { cardRatio, clamp, EASE, reducedMotion, tiltRelease, tiltTo } from './motion';
 import { aspect, mediaUrl, PhotoImage, type LocalPhoto } from './Print';
 import { trap } from './Sheet';
+
+export type PhotoEdit = { takenAt?: string; place?: string | null; camera?: string | null; resetDate?: true };
 
 type Props = {
   title: string;
@@ -18,6 +20,11 @@ type Props = {
   canNote: boolean;
   canCover: boolean;
   canDelete: (p: LocalPhoto) => boolean;
+  /** Puede editar fecha, lugar, cámara y girar (quien administra o quien la subió). */
+  canEdit?: (p: LocalPhoto) => boolean;
+  onFav?: (id: string, on: boolean) => void;
+  onRotate?: (id: string, deg: 90 | -90) => void;
+  onSaveData?: (id: string, data: PhotoEdit) => Promise<boolean>;
   sourceFor: (id: string) => HTMLElement | null;
   onIndex?: (i: number) => void;
   onNote: (id: string, note: string) => void;
@@ -29,7 +36,11 @@ type Props = {
 /** El visor: la copia se levanta de la mesa, se puede dar vuelta y ver su dorso. */
 export function Viewer(props: Props) {
   const { photos, title, shareToken } = props;
-  const [i, setI] = useState(() => clamp(props.start, 0, photos.length - 1));
+  // Se sigue a la foto por su id: si el álbum se reordena (por ejemplo al corregir la fecha), no se pierde.
+  const [cur, setCur] = useState(() => {
+    const i = clamp(props.start, 0, photos.length - 1);
+    return { id: photos[i]?.id, i };
+  });
   const [flipped, setFlipped] = useState(false);
   const [menu, setMenu] = useState<'closed' | 'open' | 'confirm'>('closed');
   const [box, setBox] = useState({ w: 0, h: 0 });
@@ -51,7 +62,8 @@ export function Viewer(props: Props) {
   useEffect(() => { propsRef.current = props; });
 
   // Si se borró la última foto mientras se miraba, se queda con la anterior.
-  const idx = Math.max(0, Math.min(i, photos.length - 1));
+  const found = photos.findIndex(p => p.id === cur.id);
+  const idx = found >= 0 ? found : Math.max(0, Math.min(cur.i, photos.length - 1));
   const p = photos[idx];
   const ar = p ? aspect(p) : 1.5;
   const k = cardRatio(ar);
@@ -96,7 +108,7 @@ export function Viewer(props: Props) {
   useLayoutEffect(() => {
     back.current = document.activeElement;
     document.documentElement.style.overflow = 'hidden';
-    const id = photos[i]?.id;
+    const id = photos[idx]?.id;
     const src = id ? propsRef.current.sourceFor(id) : null;
     if (!reducedMotion()) {
       flipFrom(src);
@@ -158,7 +170,7 @@ export function Viewer(props: Props) {
       requestAnimationFrame(() => out.cancel());
     }
     setFlipped(false);
-    setI(next);
+    setCur({ id: photos[next].id, i: next });
     propsRef.current.onIndex?.(next);
     hideSource(photos[next]?.id);
     if (!enter.current) busy.current = false;
@@ -172,7 +184,7 @@ export function Viewer(props: Props) {
     vpos.current
       .animate([{ transform: `translateX(${dir * 40}vw) rotate(${dir * 7}deg)`, opacity: 0 }, { transform: 'none', opacity: 1 }], { duration: 460, easing: EASE })
       .finished.finally(() => { busy.current = false; });
-  }, [i]);
+  }, [cur.id]);
 
   /* Teclado */
   useEffect(() => {
@@ -246,7 +258,8 @@ export function Viewer(props: Props) {
 
   const fsH = clamp(box.w * 0.062, 20, 46), fsS = clamp(box.w * 0.027, 12, 16);
   const exposure = fmtExposure(p.exposure);
-  const showMenu = props.canCover || props.canDelete(p);
+  const canEdit = !!props.canEdit?.(p);
+  const showMenu = props.canCover || props.canDelete(p) || (canEdit && !!props.onRotate);
 
   function onNoteChange(v: string) {
     propsRef.current.onNote(p.id, v);
@@ -259,6 +272,11 @@ export function Viewer(props: Props) {
         <p className="v-title">
           {title} <span>{idx + 1} de {photos.length}</span>
         </p>
+        {props.onFav && (
+          <button className={`icon-btn fav-btn${p.fav ? ' on' : ''}`} type="button" aria-pressed={p.fav} aria-label={p.fav ? 'Sacar de favoritas' : 'Marcar como favorita'} onClick={() => props.onFav!(p.id, !p.fav)}>
+            <IconHeart filled={p.fav} />
+          </button>
+        )}
         {props.allowDownload && (
           <a className="icon-btn" href={`${mediaUrl(p.id, 'original', shareToken)}${shareToken ? '&' : '?'}download`} aria-label={`Descargar el original (${p.file})`} download>
             <IconDownload />
@@ -273,6 +291,16 @@ export function Viewer(props: Props) {
               <div className="menu v-menu" role="menu">
                 {menu === 'open' ? (
                   <div className="row">
+                    {canEdit && props.onRotate && (
+                      <>
+                        <button className="btn ghost" type="button" role="menuitem" onClick={() => { props.onRotate!(p.id, -90); setMenu('closed'); }}>
+                          Girar a la izquierda
+                        </button>
+                        <button className="btn ghost" type="button" role="menuitem" onClick={() => { props.onRotate!(p.id, 90); setMenu('closed'); }}>
+                          Girar a la derecha
+                        </button>
+                      </>
+                    )}
                     {props.canCover && (
                       <button className="btn ghost" type="button" role="menuitem" onClick={() => { props.onCover(p.id); setMenu('closed'); }}>
                         Usar de portada
@@ -332,36 +360,7 @@ export function Viewer(props: Props) {
                       onChange={e => onNoteChange(e.target.value)}
                     />
                   </div>
-                  <dl className="specs">
-                    <dt>Lugar</dt>
-                    <dd>{props.place || 'Sin lugar'}</dd>
-                    {p.takenAt && (
-                      <>
-                        <dt>Fecha</dt>
-                        <dd>
-                          <DateStamp date={p.takenAt} className="ui-stamp" />
-                          &nbsp;&nbsp;{fmtTime(p.takenAt)}
-                          <span className="sr">{fmtDate(p.takenAt)}</span>
-                        </dd>
-                      </>
-                    )}
-                    <dt>Cámara</dt>
-                    <dd>{p.camera ?? 'Sin datos de cámara'}</dd>
-                    {exposure && (
-                      <>
-                        <dt>Exposición</dt>
-                        <dd>{exposure}</dd>
-                      </>
-                    )}
-                    {p.by && (
-                      <>
-                        <dt>Subida por</dt>
-                        <dd>{p.by.name}</dd>
-                      </>
-                    )}
-                    <dt>Archivo</dt>
-                    <dd>{p.file}</dd>
-                  </dl>
+                  <BackData key={p.id} p={p} albumPlace={props.place} exposure={exposure} canEdit={canEdit && !!props.onSaveData} onSave={props.onSaveData} tab={flipped ? 0 : -1} />
                 </div>
               </div>
             </div>
@@ -392,5 +391,90 @@ function FrontImage({ photo, hiRes, shareToken }: { photo: LocalPhoto; hiRes: st
       <img src={hiRes} alt={photo.note || 'Foto'} decoding="async" draggable={false} />
       {photo.takenAt && <DateStamp date={photo.takenAt} />}
     </div>
+  );
+}
+
+/** Ficha técnica del dorso. Quien puede editar la corrige ahí mismo. */
+function BackData({ p, albumPlace, exposure, canEdit, onSave, tab }: {
+  p: LocalPhoto; albumPlace: string; exposure: string; canEdit: boolean; onSave?: (id: string, data: PhotoEdit) => Promise<boolean>; tab: number;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const changed = !!p.exifTakenAt && !!p.takenAt && p.exifTakenAt !== p.takenAt;
+
+  if (editing && onSave) {
+    return (
+      <form
+        className="specs-edit"
+        onSubmit={async e => {
+          e.preventDefault();
+          const fd = new FormData(e.currentTarget);
+          const date = String(fd.get('date') ?? ''), time = String(fd.get('time') ?? '') || '12:00';
+          setBusy(true);
+          const ok = await onSave(p.id, {
+            ...(date ? { takenAt: `${date}T${time}` } : {}),
+            place: String(fd.get('place') ?? '').trim() || null,
+            camera: String(fd.get('camera') ?? '').trim() || null,
+          });
+          setBusy(false);
+          if (ok) setEditing(false);
+        }}
+      >
+        <div className="row2">
+          <label>Fecha<input className="input" name="date" type="date" defaultValue={p.takenAt?.slice(0, 10)} tabIndex={tab} /></label>
+          <label>Hora<input className="input" name="time" type="time" defaultValue={p.takenAt?.slice(11, 16)} tabIndex={tab} /></label>
+        </div>
+        <label>Lugar<input className="input" name="place" defaultValue={p.place ?? ''} placeholder={albumPlace || 'Dónde fue'} maxLength={160} tabIndex={tab} /></label>
+        <label>Cámara<input className="input" name="camera" defaultValue={p.camera ?? ''} maxLength={120} tabIndex={tab} /></label>
+        <div className="form-actions">
+          <button className="btn" type="submit" disabled={busy} tabIndex={tab}>Guardar</button>
+          <button className="btn ghost" type="button" onClick={() => setEditing(false)} tabIndex={tab}>Cancelar</button>
+        </div>
+        {changed && (
+          <button className="link-btn" type="button" tabIndex={tab} onClick={async () => { setBusy(true); if (await onSave(p.id, { resetDate: true })) setEditing(false); setBusy(false); }}>
+            Volver a la fecha de la cámara ({fmtDate(p.exifTakenAt!)}, {fmtTime(p.exifTakenAt!)})
+          </button>
+        )}
+      </form>
+    );
+  }
+
+  return (
+    <dl className="specs">
+      <dt>Lugar</dt>
+      <dd>{p.place || albumPlace || 'Sin lugar'}</dd>
+      {p.takenAt && (
+        <>
+          <dt>Fecha</dt>
+          <dd>
+            <DateStamp date={p.takenAt} className="ui-stamp" />
+            &nbsp;&nbsp;{fmtTime(p.takenAt)}
+            <span className="sr">{fmtDate(p.takenAt)}</span>
+            {changed && <span className="edited"> (corregida)</span>}
+          </dd>
+        </>
+      )}
+      <dt>Cámara</dt>
+      <dd>{p.camera ?? 'Sin datos de cámara'}</dd>
+      {exposure && (
+        <>
+          <dt>Exposición</dt>
+          <dd>{exposure}</dd>
+        </>
+      )}
+      {(p.by || p.guestName) && (
+        <>
+          <dt>Subida por</dt>
+          <dd>{p.by?.name ?? `${p.guestName} (invitado)`}</dd>
+        </>
+      )}
+      <dt>Archivo</dt>
+      <dd>{p.file}</dd>
+      {canEdit && (
+        <dd className="edit-row">
+          <button className="link-btn" type="button" tabIndex={tab} onClick={() => setEditing(true)}>Corregir fecha, lugar o cámara</button>
+        </dd>
+      )}
+    </dl>
   );
 }

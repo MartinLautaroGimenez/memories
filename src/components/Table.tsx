@@ -4,6 +4,10 @@ import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { plural } from '@/lib/format';
 import type { AlbumCardDTO } from '@/lib/types';
+import type { OnThisDay } from '@/server/albums';
+import Link from 'next/link';
+import { fmtDate } from '@/lib/format';
+import { Print } from './Print';
 import { setPendingFiles } from './handoff';
 import { IconPlus } from './icons';
 import { dealIn } from './motion';
@@ -13,7 +17,7 @@ import { useToast } from './Toast';
 import { useDropFiles } from './useDropFiles';
 
 /** "Tu mesa": todas las pilas de álbumes. */
-export function Table({ cards, meId }: { cards: AlbumCardDTO[]; meId: string }) {
+export function Table({ cards, meId, memory }: { cards: AlbumCardDTO[]; meId: string; memory?: OnThisDay | null }) {
   const [creating, setCreating] = useState<{ files: File[] } | null>(null);
   const grid = useRef<HTMLDivElement>(null);
   const total = cards.reduce((n, c) => n + c.count, 0);
@@ -41,6 +45,8 @@ export function Table({ cards, meId }: { cards: AlbumCardDTO[]; meId: string }) 
           </button>
         </div>
       </div>
+
+      {memory && <Memory m={memory} />}
 
       {cards.length ? (
         <div className="stacks" ref={grid}>
@@ -127,5 +133,20 @@ function NewAlbumSheet({ files, onClose }: { files: File[]; onClose: () => void 
         </div>
       </form>
     </Sheet>
+  );
+}
+
+/** Una foto de estos mismos días, de hace uno o más años. */
+function Memory({ m }: { m: OnThisDay }) {
+  const ar = m.photo.w && m.photo.h ? m.photo.w / m.photo.h : 1.5;
+  return (
+    <Link className="memory" href={`/a/${m.album.slug}`} aria-label={`Hace ${m.years === 1 ? 'un año' : `${m.years} años`}: ${m.album.title}`}>
+      <Print photo={m.photo} className="memory-print" stamp style={{ ['--mw' as string]: ar >= 1 ? '230px' : '170px' }} />
+      <span className="memory-text">
+        <span className="memory-when">Hace {m.years === 1 ? 'un año' : `${m.years} años`}</span>
+        <span className="memory-what">{m.album.title}{m.photo.takenAt ? `, ${fmtDate(m.photo.takenAt)}` : ''}</span>
+        {m.photo.note && <span className="memory-note">{m.photo.note}</span>}
+      </span>
+    </Link>
   );
 }
