@@ -1,0 +1,19 @@
+# Fotos de ejemplo del prototipo (se bajan con design/prototype/fetch-photos.sh)
+design/prototype/photos/
+
+# Node / Next.js
+node_modules/
+.next/
+out/
+dist/
+coverage/
+*.tsbuildinfo
+
+# Entorno y datos locales
+.env
+.env.*
+!.env.example
+/photos/
+/db/
+.DS_Store
+.claude/settings.local.json
