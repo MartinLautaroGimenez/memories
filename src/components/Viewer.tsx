@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { fmtDate, fmtExposure, fmtTime } from '@/lib/format';
 import { DateStamp } from './DateStamp';
-import { IconBack, IconClose, IconDownload, IconFlip, IconHeart, IconMore, IconNext } from './icons';
+import { IconBack, IconClose, IconDownload, IconFlip, IconHeart, IconMore, IconNext, IconProjector } from './icons';
 import { cardRatio, clamp, EASE, reducedMotion, tiltRelease, tiltTo } from './motion';
 import { aspect, mediaUrl, PhotoImage, type LocalPhoto } from './Print';
 import { trap } from './Sheet';
@@ -30,6 +30,8 @@ type Props = {
   /** Reacciones y comentarios (solo para miembros del álbum). */
   onReact?: (id: string, kind: ReactionKind, on: boolean) => void;
   onCommentsCount?: (id: string, n: number) => void;
+  /** Abre el modo proyector desde la foto en pantalla. */
+  onProject?: (i: number) => void;
   sourceFor: (id: string) => HTMLElement | null;
   onIndex?: (i: number) => void;
   onNote: (id: string, note: string) => void;
@@ -282,6 +284,11 @@ export function Viewer(props: Props) {
         {props.onFav && (
           <button className={`icon-btn fav-btn${p.fav ? ' on' : ''}`} type="button" aria-pressed={p.fav} aria-label={p.fav ? 'Sacar de favoritas' : 'Marcar como favorita'} onClick={() => props.onFav!(p.id, !p.fav)}>
             <IconHeart filled={p.fav} />
+          </button>
+        )}
+        {props.onProject && (
+          <button className="icon-btn" type="button" aria-label="Proyectar desde esta foto" title="Proyectar" onClick={() => props.onProject!(idx)}>
+            <IconProjector />
           </button>
         )}
         {props.allowDownload && (

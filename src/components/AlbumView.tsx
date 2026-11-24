@@ -12,9 +12,10 @@ import { Avatars } from './Avatars';
 import { Carousel, type CarouselHandle } from './Carousel';
 import { DateStamp } from './DateStamp';
 import { takePendingFiles } from './handoff';
-import { IconBack, IconHeart, IconShare, IconUpload } from './icons';
+import { IconBack, IconHeart, IconProjector, IconShare, IconUpload } from './icons';
 import { EASE, reducedMotion } from './motion';
 import type { LocalPhoto } from './Print';
+import { Projector } from './Projector';
 import { SettingsSheet, ShareSheet } from './ShareSheet';
 import { Sheet } from './Sheet';
 import { Spread, type SpreadHandle } from './Spread';
@@ -82,6 +83,7 @@ export function AlbumView({ album, me, openPhoto }: { album: AlbumDTO; me: Me; o
   const spread = useRef<SpreadHandle>(null);
   const carousel = useRef<CarouselHandle>(null);
   const mapRef = useRef<AlbumMapHandle>(null);
+  const [projector, setProjector] = useState<{ start: number } | null>(null);
   const titleRef = useRef<HTMLHeadingElement>(null);
   const fileInput = useRef<HTMLInputElement>(null);
   const seg = useRef<HTMLDivElement>(null);
@@ -408,6 +410,11 @@ export function AlbumView({ album, me, openPhoto }: { album: AlbumDTO; me: Me; o
                 Acomodar
               </button>
             )}
+            {ready.length > 1 && !selecting && (
+              <button className="icon-btn" type="button" aria-label="Proyectar el álbum" title="Proyectar" onClick={() => setProjector({ start: 0 })}>
+                <IconProjector />
+              </button>
+            )}
             {me && ready.length > 0 && !selecting && (
               <button className="btn ghost" type="button" onClick={() => { setMode('mesa'); setSelecting(true); }}>
                 Seleccionar
@@ -525,6 +532,7 @@ export function AlbumView({ album, me, openPhoto }: { album: AlbumDTO; me: Me; o
           onSaveData={canUpload ? saveData : undefined}
           onReact={me && !isPublic ? react : undefined}
           onCommentsCount={setCommentsCount}
+          onProject={ready.length > 1 ? i => { setViewer(null); setProjector({ start: i }); } : undefined}
           sourceFor={sourceFor}
           onIndex={i => mode === 'carrusel' && carousel.current?.goTo(i)}
           onNote={saveNote}
@@ -532,6 +540,10 @@ export function AlbumView({ album, me, openPhoto }: { album: AlbumDTO; me: Me; o
           onDelete={removePhoto}
           onClose={() => setViewer(null)}
         />
+      )}
+
+      {projector && ready.length > 0 && (
+        <Projector photos={ready} start={projector.start} title={album.title} shareToken={album.shareToken} onClose={() => setProjector(null)} />
       )}
 
       {sheet === 'share' && me && <ShareSheet album={album} meId={me.id} onClose={() => setSheet(null)} />}
