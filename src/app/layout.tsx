@@ -3,6 +3,7 @@ import '@fontsource/reenie-beanie/400.css';
 import './app.css';
 import type { Metadata, Viewport } from 'next';
 import { cookies } from 'next/headers';
+import { PwaRegister } from '@/components/Pwa';
 import { ToastProvider } from '@/components/Toast';
 
 export const generateMetadata = (): Metadata => ({
@@ -34,6 +35,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <div className="surface" aria-hidden="true" />
         <div className="fx" id="fx" aria-hidden="true" />
         <ToastProvider>{children}</ToastProvider>
+        <PwaRegister />
       </body>
     </html>
   );

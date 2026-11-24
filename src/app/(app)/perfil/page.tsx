@@ -4,6 +4,7 @@ import { db } from '@/server/db';
 import { user } from '@/server/db/schema';
 import { mailEnabled } from '@/server/mail';
 import { requireUser } from '@/server/session';
+import { InstallCard } from '@/components/Pwa';
 import { ProfileForms } from './ProfileForms';
 
 export const metadata: Metadata = { title: 'Tu perfil' };
@@ -17,6 +18,9 @@ export default async function ProfilePage() {
         <h1 className="page-title">Tu perfil</h1>
       </header>
       <ProfileForms name={me.name} email={me.email} notifications={u?.notifications ?? true} mail={await mailEnabled()} />
+      <div className="panels" style={{ marginTop: 18 }}>
+        <InstallCard />
+      </div>
     </section>
   );
 }

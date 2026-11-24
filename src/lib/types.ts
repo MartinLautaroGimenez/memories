@@ -37,6 +37,8 @@ export type PhotoDTO = {
   /** Reacciones por tipo y las de quien mira. */
   reactions: Partial<Record<ReactionKind, number>>;
   myReactions: ReactionKind[];
+  /** Rotación aplicada (va en la URL de la imagen para que cambie al girarla). */
+  rot: number;
   /** Personas que aparecen (ids de `PersonChip`). Solo para miembros. */
   persons?: string[];
 };

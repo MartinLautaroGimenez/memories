@@ -137,11 +137,11 @@ export function PersonTools({ id, name, others }: { id: string; name: string; ot
   );
 }
 
-type Item = { photoId: string; faceId: string; confirmed: boolean; slug: string; title: string; takenAt: string | null; w: number | null; h: number | null; thumbhash: string | null; color: string | null };
+type Item = { photoId: string; faceId: string; confirmed: boolean; slug: string; title: string; takenAt: string | null; w: number | null; h: number | null; thumbhash: string | null; color: string | null; rot: number };
 
 const asPhoto = (x: Item): PhotoDTO => ({
   id: x.photoId, status: 'ready', w: x.w, h: x.h, color: x.color, thumbhash: x.thumbhash, takenAt: x.takenAt, note: '', camera: null, exposure: null,
-  file: '', by: null, error: null, place: null, exifTakenAt: null, guestName: null, fav: false, lat: null, lng: null, comments: 0, reactions: {}, myReactions: [],
+  file: '', by: null, error: null, place: null, exifTakenAt: null, guestName: null, fav: false, lat: null, lng: null, comments: 0, reactions: {}, myReactions: [], rot: x.rot,
 });
 
 /** Las fotos de una persona; las sugeridas se confirman o descartan acá mismo. */

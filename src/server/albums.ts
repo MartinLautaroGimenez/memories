@@ -40,6 +40,7 @@ export function toPhotoDTO(
     comments: extra.social?.comments ?? 0,
     reactions: extra.social?.reactions ?? {},
     myReactions: extra.social?.mine ?? [],
+    rot: p.rotation,
   };
 }
 
@@ -277,4 +278,21 @@ export async function atlasAlbums(userId: string) {
     order by min(p.taken_at) desc nulls last
   `);
   return r.rows.map(x => ({ ...x, lat: Number(x.lat), lng: Number(x.lng), from: x.from ? new Date(x.from).toISOString() : null }));
+}
+
+/** Álbumes donde la persona puede subir fotos (para "Compartir con Memories" desde el celu). */
+export async function uploadableAlbums(userId: string) {
+  const r = await db.execute<{ id: string; slug: string; title: string; place: string; count: number; cover: string | null; rot: number | null }>(sql`
+    select a.id, a.slug, a.title, a.place,
+      (select count(*) from photo p where p.album_id = a.id and p.status = 'ready')::int as count,
+      c.id as cover, c.rotation as rot
+    from album a
+    join album_member m on m.album_id = a.id and m.user_id = ${userId} and m.role in ('owner', 'contributor')
+    left join lateral (
+      select p.id, p.rotation from photo p where p.album_id = a.id and p.status = 'ready'
+      order by (p.id = a.cover_photo_id) desc, p.taken_at desc nulls last limit 1
+    ) c on true
+    order by a.updated_at desc nulls last, a.created_at desc
+  `);
+  return r.rows;
 }

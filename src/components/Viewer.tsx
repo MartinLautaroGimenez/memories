@@ -154,7 +154,7 @@ export function Viewer(props: Props) {
   /* Imagen grande cuando termina de bajar */
   useEffect(() => {
     if (!p) return;
-    const url = mediaUrl(p.id, 'display', shareToken);
+    const url = mediaUrl(p, 'display', shareToken);
     const im = new Image();
     im.src = url;
     let alive = true;

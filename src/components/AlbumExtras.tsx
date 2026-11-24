@@ -338,7 +338,7 @@ export function Reorder({ photos, shareToken, onSave, onCancel }: { photos: Loca
               <span className="reorder-num">{i + 1}</span>
               <span className="reorder-paper">
                 <span className="reorder-photo" style={{ ['--ar' as string]: aspect(p), backgroundImage: bg ? `url(${bg})` : undefined }}>
-                  <img src={mediaUrl(p.id, 'thumb', shareToken)} alt="" draggable={false} loading="lazy" />
+                  <img src={mediaUrl(p, 'thumb', shareToken)} alt="" draggable={false} loading="lazy" />
                 </span>
               </span>
             </li>

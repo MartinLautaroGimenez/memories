@@ -13,8 +13,17 @@ export const aspect = (p: LocalPhoto) => {
   return w && h ? w / h : 1.5;
 };
 
-export function mediaUrl(id: string, kind: 'thumb' | 'display' | 'original', shareToken?: string) {
-  return `/media/${id}/${kind}${shareToken ? `?s=${encodeURIComponent(shareToken)}` : ''}`;
+/**
+ * URL de una imagen. Con la foto (y no solo su id) la URL lleva la rotación:
+ * al girarla cambia la URL y ningún navegador ni la caché offline muestran la versión vieja.
+ */
+export function mediaUrl(photo: string | { id: string; rot?: number }, kind: 'thumb' | 'display' | 'original', shareToken?: string) {
+  const id = typeof photo === 'string' ? photo : photo.id;
+  const q = new URLSearchParams();
+  if (shareToken) q.set('s', shareToken);
+  if (typeof photo !== 'string' && photo.rot && kind !== 'original') q.set('r', String(photo.rot));
+  const qs = q.toString();
+  return `/media/${id}/${kind}${qs ? `?${qs}` : ''}`;
 }
 
 const hashCache = new Map<string, string>();
@@ -44,7 +53,7 @@ export const PhotoImage = function PhotoImage({
 }: { photo: LocalPhoto; kind?: 'thumb' | 'display'; shareToken?: string; eager?: boolean; developMs?: number; stamp?: boolean }) {
   const ref = useRef<HTMLImageElement>(null);
   const ready = photo.status === 'ready';
-  const src = ready ? mediaUrl(photo.id, kind, shareToken) : photo.local?.url;
+  const src = ready ? mediaUrl(photo, kind, shareToken) : photo.local?.url;
   const bg = useMemo(() => placeholder(photo.thumbhash), [photo.thumbhash]);
 
   useEffect(() => {

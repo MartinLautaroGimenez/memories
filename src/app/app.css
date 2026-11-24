@@ -645,3 +645,32 @@ button.day-note{cursor:pointer;border-radius:4px}
 .faces-status{margin:4px 0 14px;padding-left:2px}
 .faces-status .meter{margin:10px 0 6px}
 .faces-status code{font-size:.85em;overflow-wrap:anywhere}
+
+/* ---------- App instalable ---------- */
+.install-card p{margin:0 0 10px}
+.install-card .steps{margin:0 0 6px;padding-left:1.3em;display:grid;gap:4px}
+.menu-links .menu-item{text-align:left}
+.offline{min-height:80dvh;display:grid;place-content:center;justify-items:center;gap:14px;text-align:center;padding:40px 0}
+.offline .logo{margin:0 auto}
+.offline .print{width:min(260px,70vw);transform:rotate(-3deg);margin:18px 0 8px}
+.offline h1{margin:0;font-stretch:118%;font-weight:800;font-size:clamp(1.8rem,5vw,2.6rem);letter-spacing:-.03em}
+.offline p{margin:0;max-width:36ch;color:var(--ink-soft)}
+
+/* Compartir desde el celu */
+.share-pick{display:grid;gap:22px;max-width:720px;margin-bottom:64px}
+.share-fan{display:flex;align-items:center;gap:0;min-height:110px;padding-left:20px}
+.share-fan img{width:84px;height:84px;object-fit:cover;margin-left:-22px;border:5px solid var(--paper);border-bottom-width:12px;border-radius:2px;
+  box-shadow:0 10px 20px -8px var(--shadow);transform:rotate(calc(var(--i) * 5deg)) translateY(calc(var(--i) * var(--i) * 2px))}
+.share-fan .home-sub{margin-left:22px}
+.share-albums{list-style:none;margin:0;padding:0;display:grid;gap:8px}
+.share-albums button{width:100%;display:grid;grid-template-columns:64px minmax(0,1fr);grid-template-rows:auto auto;column-gap:14px;align-items:center;text-align:left;
+  border:0;border-radius:14px;padding:8px;background:var(--chip);cursor:pointer;transition:background-color .2s,transform .18s var(--ease-out)}
+.share-albums button:hover{background:color-mix(in srgb,var(--chip) 60%,var(--line))}
+.share-albums button:active{transform:scale(.985)}
+.share-cover{grid-row:span 2;width:64px;height:64px;border-radius:4px;overflow:hidden;background:var(--mount);border:3px solid var(--paper);box-shadow:0 4px 10px -4px var(--shadow)}
+.share-cover img{width:100%;height:100%;object-fit:cover;display:block}
+.share-title{font-weight:700;font-stretch:108%;align-self:end}
+.share-meta{color:var(--ink-soft);font-size:.88rem;align-self:start}
+.share-new label{display:block;font-weight:650;margin-bottom:8px}
+.share-new .row{display:flex;flex-wrap:wrap;gap:8px}
+.share-new .input{flex:1 1 220px}

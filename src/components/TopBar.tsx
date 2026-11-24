@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
 import { avatarColor } from '@/lib/people';
 import { Avatar } from './Avatars';
+import { forgetOfflineCopies, useInstall } from './Pwa';
 import { LightSwitch } from './LightSwitch';
 import { Logo } from './Logo';
 
@@ -21,6 +22,7 @@ export function TopBar({ me, logout }: { me?: Me | null; logout?: () => Promise<
 
 function MeMenu({ me, logout }: { me: Me; logout: () => Promise<void> }) {
   const [open, setOpen] = useState(false);
+  const app = useInstall();
   const wrap = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (!open) return;
@@ -47,8 +49,11 @@ function MeMenu({ me, logout }: { me: Me; logout: () => Promise<void> }) {
             <Link href="/perfil" role="menuitem" onClick={() => setOpen(false)}>Tu perfil</Link>
             <Link href="/personas" role="menuitem" onClick={() => setOpen(false)}>Personas</Link>
             {me.role === 'admin' && <Link href="/admin" role="menuitem" onClick={() => setOpen(false)}>Administración</Link>}
+            {app.can && !app.standalone && (
+              <button type="button" role="menuitem" className="menu-item" onClick={() => { setOpen(false); app.install(); }}>Instalar la app</button>
+            )}
           </nav>
-          <form action={logout}>
+          <form action={logout} onSubmit={forgetOfflineCopies}>
             <button className="btn" type="submit" role="menuitem">
               Cerrar sesión
             </button>

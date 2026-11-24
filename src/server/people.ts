@@ -45,9 +45,9 @@ export async function canSeePerson(me: string, id: string) {
 export async function personDetail(me: string, id: string) {
   const [p] = await db.select().from(person).where(eq(person.id, id));
   if (!p || !(await canSeePerson(me, id))) return null;
-  const r = await db.execute<{ photoId: string; faceId: string; confirmed: boolean; slug: string; title: string; takenAt: Date | null; w: number | null; h: number | null; thumbhash: string | null; color: string | null; hasBox: boolean }>(sql`
+  const r = await db.execute<{ photoId: string; faceId: string; confirmed: boolean; slug: string; title: string; takenAt: Date | null; w: number | null; h: number | null; thumbhash: string | null; color: string | null; rot: number; hasBox: boolean }>(sql`
     select distinct on (ph.id) ph.id as "photoId", f.id as "faceId", f.confirmed, a.slug, a.title, ph.taken_at as "takenAt",
-      ph.width as w, ph.height as h, ph.thumbhash, ph.color, (f.box is not null) as "hasBox"
+      ph.width as w, ph.height as h, ph.thumbhash, ph.color, ph.rotation as rot, (f.box is not null) as "hasBox"
     from face f
     join photo ph on ph.id = f.photo_id and ph.status = 'ready'
     join album a on a.id = ph.album_id

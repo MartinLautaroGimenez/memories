@@ -60,7 +60,7 @@ export const AlbumMap = forwardRef<AlbumMapHandle, Props>(function AlbumMap({ ph
         const tilt = ((first.id.charCodeAt(0) * 37) % 9) - 4;
         const icon = L.divIcon({
           className: 'map-pin',
-          html: `<span class="map-print" style="--t:${tilt}deg"><img src="${mediaUrl(first.id, 'thumb', shareToken)}" alt="" />${g.photos.length > 1 ? `<b>${g.photos.length}</b>` : ''}</span>`,
+          html: `<span class="map-print" style="--t:${tilt}deg"><img src="${mediaUrl(first, 'thumb', shareToken)}" alt="" />${g.photos.length > 1 ? `<b>${g.photos.length}</b>` : ''}</span>`,
           iconSize: [64, 64],
           iconAnchor: [32, 32],
         });

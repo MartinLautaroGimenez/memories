@@ -186,7 +186,7 @@ export const Carousel = forwardRef<CarouselHandle, Props>(function Carousel({ ph
                 <span className="mount">
                   <span className="num">{i + 1}</span>
                   <span className="win" style={{ backgroundImage: bg ? `url(${bg})` : undefined }}>
-                    <img src={mediaUrl(ph.id, 'thumb', shareToken)} alt="" draggable={false} decoding="async" />
+                    <img src={mediaUrl(ph, 'thumb', shareToken)} alt="" draggable={false} decoding="async" />
                   </span>
                   <span className="lbl">
                     {title} {i + 1}

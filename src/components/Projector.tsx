@@ -76,7 +76,7 @@ function Slide({ p, shareToken, dir, leaving, hold, onGone }: { p: LocalPhoto; s
   return (
     <figure ref={fig} className={`pj-slide${leaving ? ' leaving' : ''}`} aria-hidden={leaving || undefined}>
       <span className="pj-frame">
-        <img ref={img} src={mediaUrl(p.id, 'display', shareToken)} alt={p.note || (p.takenAt ? `Foto del ${fmtDate(p.takenAt)}` : 'Foto')} draggable={false} />
+        <img ref={img} src={mediaUrl(p, 'display', shareToken)} alt={p.note || (p.takenAt ? `Foto del ${fmtDate(p.takenAt)}` : 'Foto')} draggable={false} />
       </span>
     </figure>
   );
@@ -107,7 +107,7 @@ export function Projector({ photos, start = 0, title, shareToken, onClose }: { p
     async (delta: Dir) => {
       const t = ++ticket.current;
       const next = (pos + delta + n) % n;
-      await preload(mediaUrl(photos[order[next]].id, 'display', shareToken));
+      await preload(mediaUrl(photos[order[next]], 'display', shareToken));
       if (t !== ticket.current) return;
       setLeaving({ p, dir: delta });
       setDir(delta);
@@ -120,7 +120,7 @@ export function Projector({ photos, start = 0, title, shareToken, onClose }: { p
 
   // Precarga la siguiente mientras se ve esta
   useEffect(() => {
-    if (n > 1) preload(mediaUrl(photos[order[(pos + 1) % n]].id, 'display', shareToken));
+    if (n > 1) preload(mediaUrl(photos[order[(pos + 1) % n]], 'display', shareToken));
   }, [pos, order, photos, n, shareToken]);
 
   // La barrita de abajo es el reloj: cuando se llena, pasa a la siguiente
