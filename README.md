@@ -60,11 +60,21 @@ Todas las opciones están al principio de [`scripts/proxmox-ct.sh`](scripts/prox
 bash -c "$(curl -fsSL https://raw.githubusercontent.com/MartinLautaroGimenez/memories/HEAD/scripts/install.sh)"
 ```
 
-Para **actualizar**, volvé a correr el instalador adentro del CT. Las fotos, la base de datos y la configuración se conservan.
+Para **actualizar**, corré esto desde el host. Las fotos, la base de datos y la configuración se conservan.
 
 ```bash
-pct exec <CTID> -- bash /root/memories-install.sh
+pct exec <CTID> -- memories-update
 ```
+
+### Entrar con un nombre en vez de la IP
+
+Si tu router tiene DNS local (por ejemplo `fotos.casa.lan` apuntando a la IP del CT), corré esto desde el host para entrar por ese nombre y sin puerto:
+
+```bash
+pct exec <CTID> -- env MEMORIES_URL=http://fotos.casa.lan MEMORIES_PORT=80 memories-update
+```
+
+También se puede seguir entrando por la IP. Evitá los nombres terminados en `.local`: están reservados para mDNS y algunos celulares, sobre todo los iPhone, no los resuelven por el DNS del router. Usá `.lan`, `.home.arpa` o `.internal`.
 
 Las fotos quedan en `/var/lib/memories/photos`, la configuración en `/etc/memories/memories.env` y los logs se ven con `journalctl -u memories -f`.
 

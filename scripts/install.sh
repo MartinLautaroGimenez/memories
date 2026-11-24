@@ -3,18 +3,18 @@
 #
 #   bash -c "$(curl -fsSL https://raw.githubusercontent.com/MartinLautaroGimenez/memories/HEAD/scripts/install.sh)"
 #
-# Correrlo de nuevo actualiza a la última versión y conserva las fotos, la base y la configuración.
+# Correrlo de nuevo (o usar `memories-update`) actualiza a la última versión y conserva
+# las fotos, la base y la configuración.
 #
-# Variables opcionales:
-#   MEMORIES_URL     dirección pública, por ejemplo https://fotos.tudominio.com (por defecto http://<IP>:<puerto>)
-#   MEMORIES_PORT    puerto (por defecto 3000)
+# Variables opcionales (también sirven para cambiar una instalación existente):
+#   MEMORIES_URL     dirección con la que se entra, por ejemplo http://fotos.casa.lan (por defecto http://<IP>:<puerto>)
+#   MEMORIES_PORT    puerto (por defecto 3000; con 80 no hace falta poner el puerto en el navegador)
 #   MEMORIES_BRANCH  rama de git (por defecto la principal del repo)
 #   MEMORIES_REPO    repositorio (por defecto el oficial)
 set -euo pipefail
 
 REPO="${MEMORIES_REPO:-https://github.com/MartinLautaroGimenez/memories.git}"
 BRANCH="${MEMORIES_BRANCH:-}"
-PORT="${MEMORIES_PORT:-3000}"
 APP_DIR=/opt/memories
 DATA_DIR=/var/lib/memories
 ENV_DIR=/etc/memories
@@ -82,22 +82,27 @@ runuser -u postgres -- psql -qtAc "select 1 from pg_database where datname='memo
   || runuser -u postgres -- createdb -O memories memories
 ok "PostgreSQL $(runuser -u postgres -- psql -qtAc 'show server_version' | cut -d' ' -f1)"
 
-# 5. Configuración (se crea una vez y se conserva en las actualizaciones)
+# 5. Configuración: se crea una vez y se conserva. MEMORIES_URL y MEMORIES_PORT la cambian si se pasan.
 IP=$(hostname -I 2>/dev/null | awk '{print $1}')
+origin_for() { if [ "$1" = 80 ]; then echo "http://${IP:-localhost}"; else echo "http://${IP:-localhost}:$1"; fi; }
+set_env() {
+  if grep -q "^$1=" "$ENV_FILE"; then sed -i "s|^$1=.*|$1=$2|" "$ENV_FILE"; else echo "$1=$2" >> "$ENV_FILE"; fi
+}
 if [ ! -f "$ENV_FILE" ]; then
   step "Creando la configuración"
-  URL="${MEMORIES_URL:-http://${IP:-localhost}:$PORT}"
+  first_port="${MEMORIES_PORT:-3000}"
+  URL="${MEMORIES_URL:-$(origin_for "$first_port")}"
   cat > "$ENV_FILE" <<EOF
 # Configuración de Memories. Después de cambiarla: systemctl restart $SERVICE
 APP_URL=${URL%/}
 # Otras direcciones desde las que se entra, separadas por coma
-TRUSTED_ORIGINS=http://${IP:-localhost}:$PORT
+TRUSTED_ORIGINS=$(origin_for "$first_port")
 DATABASE_URL=postgres://memories:$DB_PASS@127.0.0.1:5432/memories
 AUTH_SECRET=$(openssl rand -base64 32)
 STORAGE_PATH=$DATA_DIR/photos
 MAX_UPLOAD_MB=200
 PROCESS_CONCURRENCY=2
-PORT=$PORT
+PORT=$first_port
 HOSTNAME=0.0.0.0
 NODE_ENV=production
 NEXT_TELEMETRY_DISABLED=1
@@ -106,8 +111,18 @@ EOF
   chmod 0640 "$ENV_FILE"
   ok "Configuración en $ENV_FILE"
 else
-  ok "Se conserva la configuración de $ENV_FILE"
+  [ -n "${MEMORIES_PORT:-}" ] && set_env PORT "$MEMORIES_PORT"
+  [ -n "${MEMORIES_URL:-}" ] && set_env APP_URL "${MEMORIES_URL%/}"
+  ok "Configuración de $ENV_FILE"
 fi
+PORT=$(sed -n 's/^PORT=//p' "$ENV_FILE")
+PORT="${PORT:-3000}"
+# Siempre se puede entrar también por la IP del CT
+trusted=$(sed -n 's/^TRUSTED_ORIGINS=//p' "$ENV_FILE")
+case ",$trusted," in
+  *",$(origin_for "$PORT"),"*) ;;
+  *) set_env TRUSTED_ORIGINS "${trusted:+$trusted,}$(origin_for "$PORT")" ;;
+esac
 
 # 6. Código
 step "Descargando Memories"
@@ -124,16 +139,22 @@ chown -R memories:memories "$APP_DIR"
 REV=$(git_app rev-parse --short HEAD)
 ok "Versión $REV"
 
-# 7. Compilación (como el usuario memories, sin privilegios)
-step "Instalando dependencias y compilando (tarda unos minutos)"
+# 7. Compilación (como el usuario memories, sin privilegios). Si la versión no cambió, no se recompila.
 as_app() {
   runuser -u memories -- env HOME="$DATA_DIR" COREPACK_ENABLE_DOWNLOAD_PROMPT=0 NEXT_TELEMETRY_DISABLED=1 \
     PATH="$PATH" bash -c "cd '$APP_DIR' && $*"
 }
-as_app "pnpm install --frozen-lockfile --reporter=silent"
-as_app "pnpm build > '$DATA_DIR/build.log' 2>&1" || { tail -30 "$DATA_DIR/build.log"; die "La compilación falló. El log completo está en $DATA_DIR/build.log"; }
-as_app "cp -r .next/static .next/standalone/.next/static && cp -r public .next/standalone/public && cp -r drizzle .next/standalone/drizzle"
-ok "Compilado"
+BUILT_FILE="$DATA_DIR/.compilado"
+if [ -f "$APP_DIR/.next/standalone/server.js" ] && [ "$(cat "$BUILT_FILE" 2>/dev/null)" = "$REV" ]; then
+  ok "La versión $REV ya estaba compilada"
+else
+  step "Instalando dependencias y compilando (tarda unos minutos)"
+  as_app "pnpm install --frozen-lockfile --reporter=silent"
+  as_app "pnpm build > '$DATA_DIR/build.log' 2>&1" || { tail -30 "$DATA_DIR/build.log"; die "La compilación falló. El log completo está en $DATA_DIR/build.log"; }
+  as_app "cp -r .next/static .next/standalone/.next/static && cp -r public .next/standalone/public && cp -r drizzle .next/standalone/drizzle"
+  echo "$REV" > "$BUILT_FILE"
+  ok "Compilado"
+fi
 
 # 8. Servicio
 step "Configurando el servicio"
@@ -153,11 +174,20 @@ EnvironmentFile=$ENV_FILE
 ExecStart=$(command -v node) server.js
 Restart=on-failure
 RestartSec=5
+# Permite usar el puerto 80 sin correr como root
+AmbientCapabilities=CAP_NET_BIND_SERVICE
 NoNewPrivileges=true
 
 [Install]
 WantedBy=multi-user.target
 EOF
+cat > /usr/local/bin/memories-update <<'EOF'
+#!/usr/bin/env bash
+# Actualiza Memories con el instalador más reciente. Acepta MEMORIES_URL y MEMORIES_PORT para cambiar la dirección.
+set -euo pipefail
+exec bash -c "$(curl -fsSL "https://raw.githubusercontent.com/MartinLautaroGimenez/memories/${MEMORIES_BRANCH:-HEAD}/scripts/install.sh")"
+EOF
+chmod 0755 /usr/local/bin/memories-update
 systemctl daemon-reload
 systemctl enable "$SERVICE" >/dev/null 2>&1
 systemctl restart "$SERVICE"
@@ -176,4 +206,4 @@ printf '  Abrí %s%s%s y creá la primera cuenta.\n\n' "$c_ok" "$URL" "$c_off"
 printf '%s  Fotos:          %s/photos\n' "$c_dim" "$DATA_DIR"
 printf '  Configuración:  %s\n' "$ENV_FILE"
 printf '  Logs:           journalctl -u %s -f\n' "$SERVICE"
-printf '  Actualizar:     volvé a correr este mismo comando%s\n\n' "$c_off"
+printf '  Actualizar:     memories-update%s\n\n' "$c_off"

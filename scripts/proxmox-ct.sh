@@ -104,4 +104,4 @@ pct exec "$CTID" -- env \
 
 echo
 printf '%s  Entrar al CT:   pct enter %s\n' "$c_dim" "$CTID"
-printf '  Actualizar:     pct exec %s -- bash /root/memories-install.sh%s\n\n' "$CTID" "$c_off"
+printf '  Actualizar:     pct exec %s -- memories-update%s\n\n' "$CTID" "$c_off"
