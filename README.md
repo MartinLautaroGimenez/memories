@@ -30,6 +30,19 @@ La interfaz imita los objetos reales de la fotografía. Los álbumes son pilas d
 - **Tema claro (mesa de luz) y oscuro (cuarto oscuro)**, con navegación por teclado y respeto por `prefers-reduced-motion`.
 - **Tus archivos son tuyos**: los originales se guardan tal cual, en una carpeta que podés respaldar como quieras.
 
+- **Editar**: fecha, hora, lugar y cámara desde el dorso; corregir la hora de muchas fotos juntas; girar y ordenar a mano.
+- **Ver**: álbum por días, favoritas, "hace un año", **mapa** del álbum y **Atlas** (globo con todos tus viajes), y **modo proyector**.
+- **Personas**: decí quién aparece en cada foto. Con el **reconocimiento facial** prendido (panel de admin) Memories agrupa caras parecidas, todo dentro de tu servidor (YuNet + SFace; la primera vez descarga ~40 MB de modelos).
+- **Compartir**: subir sin cuenta con link y QR, descargar en ZIP, comentarios, reacciones y avisos por mail (SMTP).
+- **App para el celu (PWA)**: se instala sin tiendas, guarda lo que ya viste para mirarlo sin conexión y aparece en el menú Compartir de la galería. **Necesita HTTPS** (por ejemplo Caddy con un dominio propio, o `tailscale serve`); por `http://` el navegador no deja instalarla.
+- Las fotos sin EXIF (por ejemplo de WhatsApp) toman la fecha del archivo: se arreglan con "Corregir la hora".
+
+| | |
+|---|---|
+| ![Mapa del álbum](docs/screenshots/mapa.jpg) | ![Atlas](docs/screenshots/atlas.jpg) |
+
+![Modo proyector](docs/screenshots/proyector.jpg)
+
 <br clear="right">
 
 ## Instalar en Proxmox (CT)
@@ -173,5 +186,7 @@ Si vas a tocar la interfaz, leé primero [`.claude/skills/memories-ui/SKILL.md`]
 ## Licencia
 
 [AGPL-3.0](LICENSE). Podés usarlo, modificarlo y ofrecerlo como servicio, pero si lo ofrecés a otros con cambios, tenés que publicar esos cambios.
+
+Usa Leaflet y teselas de © OpenStreetMap, d3-geo y world-atlas (ISC), ONNX Runtime (MIT) y los modelos YuNet (MIT) y SFace (Apache-2.0) de OpenCV Zoo.
 
 Las tipografías Archivo y Reenie Beanie se distribuyen con licencia SIL Open Font License. Las fotos de las capturas y del prototipo son de [Unsplash](https://unsplash.com) (ver [créditos](design/prototype/CREDITS.md)), y los textos y personas de los álbumes de ejemplo son inventados.

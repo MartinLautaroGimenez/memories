@@ -493,6 +493,8 @@ button.day-note{cursor:pointer;border-radius:4px}
   box-shadow:0 0 0 1px var(--line),inset 0 1px 0 var(--rim),0 30px 70px -34px var(--shadow);isolation:isolate}
 .album-map .leaflet-container,.album-map.leaflet-container{background:var(--table);font-family:var(--font-ui)}
 .map-tiles{filter:grayscale(1) sepia(.12) contrast(.92) brightness(1.05)}
+/* Sin líneas entre teselas en pantallas de alta densidad: cada una pisa medio píxel a la siguiente */
+.map-tiles .leaflet-tile{width:256.5px!important;height:256.5px!important}
 @media (prefers-color-scheme: dark){ :root:not([data-theme="light"]) .map-tiles{filter:invert(1) grayscale(1) sepia(1) hue-rotate(-28deg) saturate(2.4) brightness(.55) contrast(1.15)} }
 :root[data-theme="dark"] .map-tiles{filter:invert(1) grayscale(1) sepia(1) hue-rotate(-28deg) saturate(2.4) brightness(.55) contrast(1.15)}
 .map-route{stroke:var(--route);stroke-opacity:.8}
