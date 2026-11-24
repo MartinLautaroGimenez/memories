@@ -30,18 +30,28 @@ export function ShareSheet({ album, meId, onClose }: { album: { id: string; titl
     call(`${base}/share`, 'GET').then(setS).catch(e => setError(e.message));
   }, [base]);
 
-  async function run(fn: () => Promise<unknown>, done?: string) {
+  async function run(fn: () => Promise<unknown>, done?: string, optimistic?: (s: ShareSettingsDTO) => ShareSettingsDTO) {
     setError('');
+    const before = s;
+    if (optimistic && s) setS(optimistic(s));
     try {
       const r = await fn();
       if (r && typeof r === 'object' && ('link' in r || 'invite' in r)) setS(r as ShareSettingsDTO);
       if (done) toast(done);
       return true;
     } catch (e) {
+      setS(before);
       setError((e as Error).message);
       return false;
     }
   }
+
+  const setLink = (enabled: boolean) =>
+    run(
+      () => call(`${base}/share`, 'POST', { link: { enabled } }),
+      enabled ? 'Link público activado' : 'Link público desactivado',
+      cur => ({ ...cur, link: enabled ? { url: '', hasPassword: false, allowDownload: true } : null }),
+    );
 
   async function copy(text: string, inputId: string) {
     try {
@@ -120,13 +130,13 @@ export function ShareSheet({ album, meId, onClose }: { album: { id: string; titl
       <h3>Link para ver</h3>
       <label className="toggle" htmlFor="tgPublic">
         Cualquiera con el link puede ver
-        <input type="checkbox" id="tgPublic" checked={!!link} disabled={!s} onChange={e => run(() => call(`${base}/share`, 'POST', { link: { enabled: e.target.checked } }), e.target.checked ? 'Link público activado' : 'Link público desactivado')} />
+        <input type="checkbox" id="tgPublic" checked={!!link} disabled={!s} onChange={e => setLink(e.target.checked)} />
       </label>
       {link && (
         <>
           <div className="linkrow" style={{ marginTop: 10 }}>
-            <input className="input" id="shareLink" type="text" readOnly value={link.url} aria-label="Link público del álbum" />
-            <button className="btn" type="button" onClick={() => copy(link.url, 'shareLink')}>
+            <input className="input" id="shareLink" type="text" readOnly value={link.url} placeholder="Creando el link…" aria-label="Link público del álbum" />
+            <button className="btn" type="button" disabled={!link.url} onClick={() => copy(link.url, 'shareLink')}>
               Copiar link
             </button>
           </div>
@@ -160,7 +170,15 @@ export function ShareSheet({ album, meId, onClose }: { album: { id: string; titl
           )}
           <label className="toggle" htmlFor="tgDl">
             Permitir descargar originales
-            <input type="checkbox" id="tgDl" checked={link.allowDownload} onChange={e => run(() => call(`${base}/share`, 'POST', { link: { enabled: true, allowDownload: e.target.checked } }))} />
+            <input
+              type="checkbox"
+              id="tgDl"
+              checked={link.allowDownload}
+              onChange={e => {
+                const v = e.target.checked;
+                run(() => call(`${base}/share`, 'POST', { link: { enabled: true, allowDownload: v } }), undefined, cur => ({ ...cur, link: cur.link && { ...cur.link, allowDownload: v } }));
+              }}
+            />
           </label>
         </>
       )}

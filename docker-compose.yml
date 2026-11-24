@@ -1,0 +1,46 @@
+# Memories con Docker Compose.
+#   1. cp .env.example .env   y completá APP_URL y AUTH_SECRET (openssl rand -base64 32)
+#   2. docker compose up -d
+#   3. Abrí APP_URL y creá la primera cuenta.
+#
+# Las fotos quedan en el volumen "photos" y la base en "db". Para guardarlas en una
+# carpeta tuya, cambiá "photos:/data" por "./fotos:/data" (la carpeta tiene que ser del usuario 1000).
+
+services:
+  app:
+    build: .
+    image: memories:local
+    restart: unless-stopped
+    ports:
+      - "${PORT:-3000}:3000"
+    environment:
+      APP_URL: ${APP_URL:-http://localhost:3000}
+      TRUSTED_ORIGINS: ${TRUSTED_ORIGINS:-}
+      AUTH_SECRET: ${AUTH_SECRET:?Definí AUTH_SECRET en el archivo .env (openssl rand -base64 32)}
+      DATABASE_URL: postgres://memories:${POSTGRES_PASSWORD:-memories}@db:5432/memories
+      MAX_UPLOAD_MB: ${MAX_UPLOAD_MB:-200}
+      PROCESS_CONCURRENCY: ${PROCESS_CONCURRENCY:-2}
+    volumes:
+      - photos:/data
+    depends_on:
+      db:
+        condition: service_healthy
+
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: memories
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-memories}
+      POSTGRES_DB: memories
+    volumes:
+      - db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U memories -d memories"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  photos:
+  db:

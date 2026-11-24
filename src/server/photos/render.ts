@@ -103,17 +103,17 @@ export async function renderPhoto(buf: Buffer, mime: string, name: string, outDi
       .make()
       .resize(v.size, v.size, { fit: 'inside', withoutEnlargement: true })
       .webp({ quality: v.quality, effort: 4 })
-      .toFile(path.join(outDir, `${kind}.webp`));
+      .toFile(path.join(/*turbopackIgnore: true*/ outDir, `${kind}.webp`));
     variants[kind] = { w: info.width, h: info.height, bytes: info.size };
   }
 
-  const small = await sharp(path.join(outDir, 'thumb.webp'))
+  const small = await sharp(path.join(/*turbopackIgnore: true*/ outDir, 'thumb.webp'))
     .resize(100, 100, { fit: 'inside' })
     .ensureAlpha()
     .raw()
     .toBuffer({ resolveWithObject: true });
   const hash = rgbaToThumbHash(small.info.width, small.info.height, small.data);
-  const { dominant } = await sharp(path.join(outDir, 'thumb.webp')).stats();
+  const { dominant } = await sharp(path.join(/*turbopackIgnore: true*/ outDir, 'thumb.webp')).stats();
   const hex = (n: number) => n.toString(16).padStart(2, '0');
 
   const t = exif.tags ?? {};

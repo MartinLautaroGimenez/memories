@@ -7,7 +7,14 @@ description: Sistema de diseño de Memories ("Mesa de luz" / "Cuarto oscuro"). U
 
 Memories guarda fotos de viajes y eventos. La interfaz no imita una app de fotos: imita **los objetos reales de la fotografía**. Una copia impresa tiene borde, peso, sombra y dorso. Una diapositiva tiene marco. Un rollo tiene números de cuadro. Cada decisión visual sale de ese mundo. Si un detalle no podría existir en un laboratorio de fotos, una mesa de luz o un álbum de papel, probablemente sobra.
 
-Referencia viva: `design/prototype/index.html`. Si esta skill y el prototipo no coinciden, gana el prototipo y se actualiza la skill.
+Dónde vive cada cosa en la app:
+
+- Tokens y estilos: `src/app/app.css` (estilos globales, sin framework).
+- Componentes: `src/components/`, con `Print`, `Stack`, `Spread`, `Carousel`, `Viewer`, `DateStamp` y `LightSwitch`.
+- Movimiento: `src/components/motion.ts` (revelado, cascada e inclinación) y la Web Animations API. No se usan librerías de animación.
+- Logo: `brand/` (se regenera con `pnpm brand`).
+
+El prototipo original (`design/prototype/index.html`) queda como referencia visual. Si la app y esta skill no coinciden, se corrige la que esté mal y se actualiza la otra.
 
 ## Concepto
 

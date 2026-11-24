@@ -5,7 +5,8 @@ import type { Metadata, Viewport } from 'next';
 import { cookies } from 'next/headers';
 import { ToastProvider } from '@/components/Toast';
 
-export const metadata: Metadata = {
+export const generateMetadata = (): Metadata => ({
+  metadataBase: new URL(process.env.APP_URL || 'http://localhost:3000'),
   title: { default: 'Memories', template: '%s · Memories' },
   description: 'Tus fotos de viajes y eventos en un lugar propio.',
   applicationName: 'Memories',
@@ -13,7 +14,7 @@ export const metadata: Metadata = {
   appleWebApp: { capable: true, title: 'Memories', statusBarStyle: 'default' },
   openGraph: { images: ['/og-image.png'] },
   robots: { index: false, follow: false },
-};
+});
 
 export const viewport: Viewport = {
   width: 'device-width',

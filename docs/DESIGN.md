@@ -60,94 +60,82 @@ No intenta reemplazar a Google Fotos ni a Immich, que ya resuelven el backup aut
 ```mermaid
 flowchart LR
   subgraph Cliente
-    A[Navegador o PWA<br/>Next.js + React]
+    A[Navegador o PWA<br/>React]
   end
   subgraph "Servidor (docker compose)"
-    B[App Next.js<br/>UI + API + Server Actions]
-    W[Worker<br/>sharp + exifr]
+    subgraph App["Contenedor app (Next.js)"]
+      B[UI + API + Server Actions]
+      Q[Cola de revelado<br/>sharp + exifr + libheif]
+      M[/media: sirve las fotos<br/>con control de acceso/]
+    end
     D[(PostgreSQL)]
-    S[(Storage<br/>disco local o S3)]
+    S[(Carpeta de fotos<br/>/data)]
   end
   A -- HTTPS --> B
+  A -- imágenes --> M
   B --> D
-  B -- encola trabajos --> D
-  W -- toma trabajos --> D
-  W --> S
-  B -- sirve variantes firmadas --> S
+  B -- guarda el original --> S
+  B -- encola --> Q
+  Q -- variantes --> S
+  Q -- estado --> D
+  M --> S
 ```
 
-### Stack
+### Stack (lo que quedó implementado)
 
 | Capa | Elección | Por qué |
 |---|---|---|
-| Framework | **Next.js** (App Router) + **TypeScript** | UI y API en un solo proyecto y un solo contenedor. Server Components para las vistas pesadas. |
-| UI | React, CSS con tokens (variables) y **Tailwind v4** para utilidades | Los tokens del sistema de diseño viven en CSS y Tailwind los consume con `@theme`. |
-| Animación | **Motion** (ex Framer Motion) para gestos y transiciones de layout; CSS 3D para las copias | Resortes, `layoutId` para el FLIP pila → álbum, y gestos con inercia. |
-| 3D pesado | **React Three Fiber**, solo en vistas aisladas (el futuro Atlas) | Se carga con `dynamic()` y no entra en el bundle principal. |
-| Base de datos | **PostgreSQL 16** + **Drizzle ORM** | Tipado de punta a punta y migraciones simples. |
-| Cola de trabajos | **pg-boss** (sobre Postgres) | No suma Redis: un servicio menos para levantar. |
-| Imágenes | **sharp** (libvips) con soporte HEIC, y **exifr** para los metadatos | Rápido, con poca memoria, y genera AVIF y WebP. |
-| Auth | **Better Auth** | Email y contraseña desde el día uno y OIDC después, con sesiones en Postgres. |
-| Storage | Adaptador propio: `local` (por defecto) o `s3` (MinIO, R2, B2, AWS) | Las fotos son archivos comunes en una carpeta que podés respaldar como quieras. |
-| Tests | Vitest + Playwright | Unitarios para el pipeline y e2e para los flujos de subir, compartir y ver. |
+| Framework | **Next.js 16** (App Router) + **React 19** + **TypeScript** | UI y API en un solo proyecto y un solo contenedor (`output: standalone`). |
+| UI | CSS propio con tokens en `src/app/app.css`, sin framework de estilos | El sistema visual es muy específico (copias, mesa, dorso). Los tokens ya resuelven los dos temas y un framework no aportaba. |
+| Animación | **Web Animations API** + CSS 3D, sin librerías | El FLIP pila → álbum, el revelado, el volteo y la inercia se resuelven con `element.animate()` y `transform`. No suma peso al bundle. |
+| 3D pesado | **React Three Fiber**, solo si llega el Atlas | Se cargaría con `dynamic()` en su propia ruta. |
+| Base de datos | **PostgreSQL 16** + **Drizzle ORM** (driver `pg`) | Tipado de punta a punta. Las migraciones se aplican solas al arrancar. |
+| Cola de trabajos | **En el mismo proceso**, respaldada por la tabla `photo` | Lo que queda en `processing` se retoma al reiniciar, con hasta 3 intentos. Para una app self-hosted de un contenedor alcanza, y es un servicio y una dependencia menos. |
+| Imágenes | **sharp** (libvips), **exifr** y **heic-decode** (libheif en WASM) | sharp no trae HEVC por patentes. El HEIC de iPhone se decodifica con libheif y después pasa por sharp. |
+| Auth | **Better Auth** (email y contraseña) | Sesiones en Postgres. OIDC queda para después. |
+| Storage | Disco local (`STORAGE_PATH`) | Los originales quedan tal cual en una carpeta que podés respaldar. S3 queda para después. |
+| Tests | Vitest + Playwright | Unitarios para el pipeline (con HEIC) y de punta a punta para subir, revelar, dar vuelta, compartir e invitar. |
 
 ### Pipeline de una foto
 
-1. El cliente pide una URL de subida (`POST /api/uploads`) y sube el archivo original directo al storage, en partes si es grande.
-2. Se crea la fila `photo` con `status = processing` y se encola `process-photo`.
-3. El worker:
-   - Lee el EXIF (fecha, cámara, exposición, GPS y orientación).
-   - Genera tres variantes, `thumb` (480px), `display` (1600px) y `full` (2560px), en AVIF y WebP, rotadas según el EXIF.
-   - Calcula el color dominante y un **thumbhash**. Son la "imagen sin revelar" que se ve mientras carga la real (ver Revelado en la sección 4).
-   - Calcula un hash perceptual para detectar duplicados más adelante.
-4. La foto pasa a `ready` y el cliente la "revela".
+1. El cliente sube cada archivo con `POST /api/albums/:id/photos`, con el cuerpo crudo (sin multipart) y el nombre en `x-file-name`. Sube de a tres en paralelo. El servidor lo guarda en streaming, cortando si supera `MAX_UPLOAD_MB`.
+2. Se crea la fila `photo` con `status = processing` y se encola.
+3. La cola:
+   - Lee el EXIF: fecha (como hora de reloj de la cámara), cámara, exposición y GPS.
+   - Genera dos variantes en WebP, rotadas según el EXIF y **sin metadatos**: `thumb` (720px) y `display` (1800px).
+   - Calcula el color dominante y un **thumbhash**, que es la "imagen latente" que se ve mientras carga la real.
+4. La foto pasa a `ready`. El cliente, que consulta el estado cada 1,5 segundos, la "revela".
+
+Mientras tanto, la copia muestra la vista previa local del archivo como imagen latente (blanca, sin contraste y desenfocada).
 
 El original **nunca se modifica**: se guarda tal cual y es lo que baja con "Descargar originales".
 
-### Modelo de datos (primera versión)
+### Modelo de datos
+
+El esquema completo está en `src/server/db/schema.ts`.
 
 ```
-users            id, email, name, avatar_color, created_at
-albums           id, slug, title, place, lat, lng, cover_photo_id,
-                 starts_at, ends_at (calculadas), created_by, created_at
-album_members    album_id, user_id, role ('owner' | 'contributor' | 'viewer')
-photos           id, album_id, uploaded_by, storage_key, mime, bytes,
-                 width, height, taken_at, lat, lng,
-                 camera, exposure (jsonb), dominant_color, thumbhash,
-                 phash, note, status, created_at
-photo_variants   photo_id, kind ('thumb' | 'display' | 'full'), format, storage_key, width, height
-share_links      id, album_id, token, password_hash, expires_at,
-                 allow_download, created_by, created_at
-invites          id, album_id, email, role, token, expires_at
+user, session, account, verification   tablas de Better Auth (+ user.role: admin | member)
+album         id, slug, title, place, lat, lng, cover_photo_id, created_by, created_at
+album_member  album_id, user_id, role (owner | contributor | viewer)
+photo         id, album_id, uploaded_by, original_key, original_name, mime, bytes,
+              width, height, taken_at, lat, lng, camera, exposure (jsonb),
+              color, thumbhash, variants (jsonb), note, status, attempts, error
+share_link    id, album_id, token, password_hash, allow_download, expires_at, revoked_at
+invite        id, album_id, token, role, expires_at (14 días), uses, revoked_at
 ```
+
+Las fechas del álbum (desde y hasta) se calculan a partir de sus fotos. Los permisos son estos:
+
+- **owner**: administra el álbum, comparte, elige la portada y borra cualquier foto.
+- **contributor**: sube fotos, escribe notas y borra las fotos que subió.
+- **viewer**: solo mira.
 
 ### Despliegue
 
-```yaml
-# docker-compose.yml (borrador)
-services:
-  app:
-    image: ghcr.io/<org>/memories:latest
-    ports: ["3000:3000"]
-    environment:
-      DATABASE_URL: postgres://memories:memories@db:5432/memories
-      STORAGE_DRIVER: local          # o s3
-      STORAGE_PATH: /data/photos
-      AUTH_SECRET: cambiame
-    volumes: ["./photos:/data/photos"]
-    depends_on: [db]
-  worker:
-    image: ghcr.io/<org>/memories:latest
-    command: ["node", "worker.js"]
-    environment: { DATABASE_URL: postgres://memories:memories@db:5432/memories, STORAGE_PATH: /data/photos }
-    volumes: ["./photos:/data/photos"]
-  db:
-    image: postgres:16-alpine
-    environment: { POSTGRES_USER: memories, POSTGRES_PASSWORD: memories, POSTGRES_DB: memories }
-    volumes: ["./db:/var/lib/postgresql/data"]
-```
+Son dos contenedores: `app` (imagen de unos 420 MB, usuario sin privilegios uid 1000, con healthcheck en `/api/health`) y `db` (Postgres 16). Están en [`docker-compose.yml`](../docker-compose.yml) y las instrucciones en el [README](../README.md#instalar-con-docker).
 
-App y worker usan la misma imagen y solo cambia el comando, así hay una sola cosa para construir y versionar.
+La CI (`.github/workflows/ci.yml`) corre lint, tipos y pruebas unitarias, y después las pruebas de punta a punta contra Postgres y el build standalone. También compila la imagen. En `main` y en las versiones (`v*`) la publica en `ghcr.io` para amd64 y arm64, para que corra en una Raspberry Pi o un NAS.
 
 ## 4. Diseño visual
 
@@ -172,17 +160,21 @@ Calidad mínima: funciona a 375px, se navega con teclado, respeta `prefers-reduc
 | Etapa | Entregable |
 |---|---|
 | 0. Diseño | Este documento, el prototipo y la skill de diseño **(hecho)** |
-| 1. Esqueleto | Repo Next.js + TS, Drizzle + Postgres, docker compose, CI con lint, tests y build de la imagen |
-| 2. Fotos | Subida, worker con sharp y exifr, variantes, thumbhash y storage local |
-| 3. UI núcleo | Mesa (inicio), álbum con vista Mesa, visor con dorso y tema Luz/Cuarto oscuro, portados del prototipo a componentes React |
-| 4. Personas | Auth, miembros, invitaciones y links públicos |
-| 5. Celu | PWA, gestos táctiles finos, subida desde la galería |
-| 6. v0.1 | Carrusel, ZIP, i18n, documentación de instalación y primera release |
+| 1. Esqueleto | Next.js + TS, Drizzle + Postgres, Docker Compose y CI con lint, tests e imagen **(hecho)** |
+| 2. Fotos | Subida en streaming, cola de revelado con sharp, exifr y HEIC, variantes, thumbhash y storage local **(hecho)** |
+| 3. UI núcleo | Mesa con pilas, álbum con vistas Mesa y Carrusel, visor con dorso editable, tema Luz/Cuarto oscuro y logo **(hecho)** |
+| 4. Personas | Cuentas, miembros con roles, invitaciones y links públicos con contraseña **(hecho)** |
+| 5. Celu | PWA instalable y arrastre táctil **(hecho)**. Falta el share target (subir desde la galería) y probarlo en celulares reales |
+| 6. v0.1 | Descargar el álbum en ZIP, i18n (inglés), "hace un año", primera release con imagen publicada |
 
-## 6. Preguntas abiertas
+## 6. Decisiones tomadas
 
-1. **El nombre.** Ya existe [Memories para Nextcloud](https://github.com/pulsejet/memories), un proyecto open source de fotos bastante conocido. Conviene buscar un nombre que no se confunda. Algunas ideas: *Revelado*, *Mesa de luz*, *Contacto* (por la hoja de contactos), *Copias*.
-2. **La licencia.** AGPL-3.0 (como Immich: si alguien lo ofrece como servicio tiene que publicar sus cambios) o MIT (más permisiva). Para una app self-hosted recomiendo AGPL.
-3. **El idioma del código y la documentación.** La UI arranca en español rioplatense con inglés. ¿El README y el código van en inglés para sumar contribuciones de afuera?
-4. **El HEIC.** El soporte depende de libheif en la imagen de Docker. Hay que confirmar la licencia del códec (HEVC) para distribuirlo, o convertir con `heic-decode` en JS, que es más lento.
-5. **El tamaño máximo de subida** y si se guardan los originales siempre o se puede elegir guardar solo las variantes para ahorrar disco.
+- **Nombre**: Memories. Ya existe [Memories para Nextcloud](https://github.com/pulsejet/memories), pero es un plugin de Nextcloud y no una app independiente. El logo propio (copias apiladas con el fechador naranja) ayuda a diferenciarlo.
+- **Licencia**: AGPL-3.0-only.
+- **HEIC**: se decodifica con `heic-decode` (libheif compilado a WASM, licencia LGPL), así no hace falta un libvips especial en la imagen. Es más lento que una librería nativa, pero solo se usa con los HEIC.
+
+## 7. Preguntas abiertas
+
+1. **El idioma del código y la documentación.** Hoy el código (nombres de variables y funciones) está en inglés y los comentarios, la UI y la documentación en español rioplatense. ¿Pasamos el README a inglés para sumar contribuciones de afuera?
+2. **El tamaño máximo de subida** (hoy 200 MB por foto) y si conviene permitir guardar solo las variantes para ahorrar disco.
+3. **Las sesiones abiertas desde la red local.** Si se entra por IP y por dominio, hay que listar las dos en `TRUSTED_ORIGINS`. ¿Lo detectamos solo en la primera instalación?

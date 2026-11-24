@@ -55,6 +55,11 @@ export function AlbumView({ album, me }: { album: AlbumDTO; me: Me }) {
     [photos, isOwner, me?.id],
   );
   const ready = useMemo(() => photos.filter(p => p.status === 'ready'), [photos]);
+  // El rango de fechas sale de las fotos reveladas, así se actualiza con cada subida.
+  const [from, to] = useMemo(() => {
+    const dates = ready.map(p => p.takenAt).filter((d): d is string => !!d).sort();
+    return dates.length ? [dates[0], dates[dates.length - 1]] : [album.from, album.to];
+  }, [ready, album.from, album.to]);
 
   const uploads = useUploads({
     albumId: album.id,
@@ -149,7 +154,8 @@ export function AlbumView({ album, me }: { album: AlbumDTO; me: Me }) {
   }, [ready]);
 
   const others = album.people.filter(p => p.id !== me?.id).map(p => p.name.split(' ')[0]);
-  const by = isPublic ? namesList(album.people.map(p => p.name.split(' ')[0]), false) : namesList(others, !!me);
+  // "de Juli, Tomi y vos"; si el álbum es solo tuyo no hace falta decirlo.
+  const by = isPublic ? namesList(album.people.map(p => p.name.split(' ')[0]), false) : others.length ? namesList(others, !!me) : '';
 
   return (
     <section>
@@ -168,13 +174,13 @@ export function AlbumView({ album, me }: { album: AlbumDTO; me: Me }) {
         <div className="album-meta">
           {album.place && <span>{album.place}</span>}
           {album.coords && <span>{album.coords}</span>}
-          {album.from && album.to && (
-            <span aria-label={rangeText(album.from, album.to)}>
-              <DateStamp date={album.from} className="ui-stamp" />
-              {!sameDay(album.from, album.to) && (
+          {from && to && (
+            <span aria-label={rangeText(from, to)}>
+              <DateStamp date={from} className="ui-stamp" />
+              {!sameDay(from, to) && (
                 <>
                   &nbsp;&nbsp;al&nbsp;&nbsp;
-                  <DateStamp date={album.to} className="ui-stamp" />
+                  <DateStamp date={to} className="ui-stamp" />
                 </>
               )}
             </span>

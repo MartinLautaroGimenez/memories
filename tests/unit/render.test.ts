@@ -79,3 +79,14 @@ describe('helpers', () => {
     expect(isHeic('image/jpeg', 'foto.jpg')).toBe(false);
   });
 });
+
+describe('HEIC de iPhone', () => {
+  it('se decodifica con libheif y genera las variantes', async () => {
+    const buf = await readFile(path.join(__dirname, '../fixtures/IMG_2041.HEIC'));
+    const out = path.join(dir, 'heic');
+    const r = await renderPhoto(buf, 'image/heic', 'IMG_2041.HEIC', out);
+    expect([r.width, r.height]).toEqual([360, 480]);
+    expect(r.variants.thumb).toMatchObject({ w: 360, h: 480 });
+    expect((await sharp(path.join(out, 'display.webp')).metadata()).format).toBe('webp');
+  });
+});

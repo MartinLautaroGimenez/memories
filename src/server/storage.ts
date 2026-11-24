@@ -14,7 +14,7 @@ import { env } from './env';
  */
 export function storagePath(key: string): string {
   const root = env.STORAGE_PATH;
-  const full = path.resolve(root, key);
+  const full = path.resolve(/*turbopackIgnore: true*/ root, key);
   if (full !== root && !full.startsWith(root + path.sep)) throw new Error('Ruta de storage inválida');
   return full;
 }

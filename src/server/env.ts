@@ -20,11 +20,13 @@ export const env = {
     return read('DATABASE_URL');
   },
   get AUTH_SECRET() {
-    const fallback = process.env.NODE_ENV === 'production' ? undefined : 'dev-secret-no-usar-en-produccion-0123456789';
+    // En `next build` no hay secreto todavía: solo se exige cuando el servidor corre de verdad.
+    const building = process.env.NEXT_PHASE === 'phase-production-build';
+    const fallback = process.env.NODE_ENV === 'production' && !building ? undefined : 'dev-secret-no-usar-en-produccion-0123456789';
     return read('AUTH_SECRET', process.env.BETTER_AUTH_SECRET ?? fallback);
   },
   get STORAGE_PATH() {
-    return path.resolve(read('STORAGE_PATH', './data'));
+    return path.resolve(/*turbopackIgnore: true*/ read('STORAGE_PATH', './data'));
   },
   get MAX_UPLOAD_BYTES() {
     return Number(read('MAX_UPLOAD_MB', '200')) * 1024 * 1024;

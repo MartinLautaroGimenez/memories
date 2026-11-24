@@ -7,7 +7,7 @@ import { drizzle } from 'drizzle-orm/node-postgres';
 import { migrate } from 'drizzle-orm/node-postgres/migrator';
 import { Pool } from 'pg';
 
-export async function runMigrations(connectionString: string, folder = path.join(process.cwd(), 'drizzle')) {
+export async function runMigrations(connectionString: string, folder = path.join(/*turbopackIgnore: true*/ process.cwd(), 'drizzle')) {
   const pool = new Pool({ connectionString, max: 1 });
   try {
     await migrate(drizzle(pool), { migrationsFolder: folder });
