@@ -32,6 +32,42 @@ La interfaz imita los objetos reales de la fotografía. Los álbumes son pilas d
 
 <br clear="right">
 
+## Instalar en Proxmox (CT)
+
+En la consola del host de Proxmox:
+
+```bash
+bash -c "$(curl -fsSL https://raw.githubusercontent.com/MartinLautaroGimenez/memories/HEAD/scripts/proxmox-ct.sh)"
+```
+
+El script hace todo esto:
+
+1. Crea un CT Debian 12 sin privilegios (2 núcleos, 2 GB de RAM, 32 GB de disco y DHCP).
+2. Instala Node.js 22 y PostgreSQL adentro.
+3. Compila Memories y lo deja como servicio que arranca solo.
+
+Al terminar te muestra la dirección, por ejemplo `http://192.168.1.50:3000`. Abrila y creá la primera cuenta.
+
+Para cambiar los valores, ponelos delante del comando:
+
+```bash
+CT_DISK=200 CT_RAM=4096 CT_IP=192.168.1.50/24 CT_GW=192.168.1.1 MEMORIES_URL=https://fotos.tudominio.com bash -c "$(curl -fsSL https://raw.githubusercontent.com/MartinLautaroGimenez/memories/HEAD/scripts/proxmox-ct.sh)"
+```
+
+Todas las opciones están al principio de [`scripts/proxmox-ct.sh`](scripts/proxmox-ct.sh). Si ya tenés un CT con Debian o Ubuntu, o cualquier máquina con esos sistemas, corré este comando adentro:
+
+```bash
+bash -c "$(curl -fsSL https://raw.githubusercontent.com/MartinLautaroGimenez/memories/HEAD/scripts/install.sh)"
+```
+
+Para **actualizar**, volvé a correr el instalador adentro del CT. Las fotos, la base de datos y la configuración se conservan.
+
+```bash
+pct exec <CTID> -- bash /root/memories-install.sh
+```
+
+Las fotos quedan en `/var/lib/memories/photos`, la configuración en `/etc/memories/memories.env` y los logs se ven con `journalctl -u memories -f`.
+
 ## Instalar con Docker
 
 Necesitás Docker con Compose.
